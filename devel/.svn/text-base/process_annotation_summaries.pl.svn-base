@@ -1,0 +1,76 @@
+#!/usr/local/bin/perl
+
+use strict;
+use Config::IniFiles;
+use FindBin;
+require "$FindBin::Bin/mg_lib.pl";
+
+my $infile = $ARGV[0];
+my $results_path = $ARGV[1];
+my $config = $ARGV[2];
+my $tag = $ARGV[3];
+
+my $cfg;
+if ($config) {
+	$cfg = Config::IniFiles->new( -file => "$config" ) || die "cannot parse user suplied config file.\n";
+}
+
+my %columns = (
+	3 => "Description",
+	4 => "PFamIDs",
+	5 => "TIGRFamIDs",
+	6 => "GOProcIDs",
+	7 => "GOFuncIDs",
+	8 => "ECIDs",
+);
+
+my @cutoffs = (90,75,60,45);
+
+my %EXECS = (
+	"AccEv" => "/local/devel/VIRIFX/software/AnnotationTools/Accumulate_Evidence_Across_Hits/Accumulate_Evidence_Across_Hits.pl",
+	"SumTab" => "/local/devel/VIRIFX/software/site_comparison/by_taxonomic_assignment/SummaryTable_Utilities/List_to_Summary_Table.pl",
+	"GetLev" => "/local/devel/VIRIFX/software/AnnotationTools/Estimate_Taxa_from_Alignment/Get_Higher_Levels.pl",
+	"FilterTaxa" => "/local/devel/VIRIFX/software/AnnotationTools/Filter_Annotation_By_TaxaID/Filter_Annotation_By_TaxaID.pl",
+);
+
+my $prefix = "$results_path/sample_annotation.cutoff";
+
+my $cmd = "$EXECS{AccEv} -a $infile -o $prefix -h";
+print "$cmd\n";
+system $cmd;
+
+my @anno_files = <$prefix*>;
+
+foreach my $cutoff (@cutoffs) {
+	my $file = "$prefix.$cutoff.tsv";
+	
+	## filter here each file rename for next loop	
+	my $filter_prefix = $file;
+	$filter_prefix =~ s/.tsv/.filtered/;
+	my $taxa_id_file = "$results_path/sample_taxa.cutoff.$cutoff.taxa_ids.tsv";
+	my $taxa_filter;
+	if ($cfg->val('UNIREF', 'taxa_filter')) {
+		$taxa_filter = $cfg->val('UNIREF', 'taxa_filter')
+	} else {
+		$taxa_filter = "$results_path/taxa_filter.txt";  ## will create an empty filter file if none exists
+		system ("touch $taxa_filter");
+	}
+	my $cmd = "$EXECS{FilterTaxa} -a $file -t $taxa_id_file -f $taxa_filter -o $filter_prefix";
+	print "$cmd\n";
+	system $cmd;
+	
+	my $kept_file = "$filter_prefix.kept";
+	
+	foreach my $col (keys %columns) {
+		my $ofile = $file;
+		$ofile =~ s/.tsv/.$columns{$col}/;
+		my $cmd = "$EXECS{SumTab} -i $kept_file -l 2 -c $col -o $ofile";
+		if ($tag) {
+			$cmd .= " -n $tag";
+		}
+		print "$cmd\n";
+		system $cmd;
+	}
+}
+
+

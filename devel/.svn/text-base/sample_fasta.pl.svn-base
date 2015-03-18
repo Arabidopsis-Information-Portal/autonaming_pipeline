@@ -1,0 +1,50 @@
+#!/usr/local/bin/perl
+
+use strict;
+use Bio::SeqIO;
+use FindBin;
+require "$FindBin::Bin/mg_lib.pl";
+
+#use lib "/usr/local/devel/VIRIFX/software/VGD/lib";
+#use Getopt::Euclid 0.2.4 qw(:vars);
+
+my $file = $ARGV[0];
+my $results_path = $ARGV[1];
+my $sample_size = $ARGV[2];
+
+if ($sample_size < 1 ) {
+	die "$sample_size must greater than or equal to 1.\n";
+}
+
+my $in = Bio::SeqIO->new(-file => "$file");
+
+my $count = `grep ">" $file -c`;
+chomp $count;
+my $target = $sample_size / $count;
+
+print "C: $count\n$sample_size: $target\n";
+
+my $in_file = "$results_path/proportion_subsample.fasta";
+my @list;
+push @list, $in_file; 
+
+my $list_file = "$results_path/input_subsample.list";
+write_list_file($list_file, \@list);
+
+my $iprop = (1-$target);
+my $out_file = "$results_path/proportion_remainder.fasta";
+
+my $seq_count = 0;
+my $file_count = 0;
+
+my $oseq_in = Bio::SeqIO->new(-file => ">$in_file", -format => "fasta");
+my $oseq_out = Bio::SeqIO->new(-file => ">$out_file", -format => "fasta");
+while (my $seq = $in->next_seq()) {
+	$seq_count ++;
+	my $random_number = rand(1);
+	if ($random_number <= $target) {
+		$oseq_in->write_seq($seq);
+	} else {
+		$oseq_out->write_seq($seq);
+	}
+}

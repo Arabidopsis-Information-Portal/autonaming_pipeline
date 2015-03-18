@@ -1,0 +1,38 @@
+#!/usr/local/bin/perl
+
+use strict;
+
+my $file = $ARGV[0];
+my $list = $ARGV[1];
+my $exclude = $ARGV[2];
+
+open (LIST, "$list") || die "cannot open $list. $!\n";
+
+my %list;
+
+while (<LIST>) {
+    chomp $_;
+
+    $list{$_} = 1;
+}
+close LIST;
+
+open (FILE, $file) || die "cannot open $file. $!\n";
+
+while (<FILE>) {
+	chomp $_;
+	my @line = split /\t/, $_;
+	if ($exclude) {
+		if ($list{$line[0]}) {
+			#print "Exclude $line[0]\n";
+		} else {
+			print join("\t",@line) . "\n";
+		}
+	} else {
+		if ($list{$line[0]}) {
+			print join("\t",@line) . "\n";
+		} else {
+			#print "Include $line[0]\n";
+		}
+	}
+}

@@ -1,0 +1,66 @@
+#!/usr/local/bin/perl
+
+use strict;
+use FindBin;
+require "$FindBin::Bin/mg_lib.pl";
+
+my $list = $ARGV[0];
+my $results_path = $ARGV[1];
+
+#use lib "/usr/local/devel/VIRIFX/software/VGD/lib";
+#use Getopt::Euclid 0.2.4 qw(:vars);
+
+my @order = ("UNIREF","HMM3","TMHMM1","LIPO","HYPO", "RULES", "UniRef", "PFAM", "TIGRFAM", "LipoproteinMotif", "TMHMM", "HYPOTHETICAL");
+
+my %dirs = (
+	UNIREF => "uniref_results",
+	HMM3 => "hmm3_results",
+	TMHMM1 => "tmhmm_results",
+	LIPO => "lipoprotein_results",
+	HYPO => "hypothetical_results",
+	RULES => "$results_path/rules_results",
+);
+
+my @files = &read_list_file($list);
+
+my %counts;
+foreach my $file (@files) {
+	my $cmd = "wc -l $file";
+	my $results = `$cmd`;
+	chomp $results;
+#	print "$results\n";
+	foreach my $dir (keys %dirs) {
+		if ($results =~ $dirs{$dir}) {
+			my @line = split '\s', $results;
+#			print "$dir $line[0]\n";
+			$counts{$dir} = $line[0];	
+		}
+	}
+}
+
+my $rules_file = "$dirs{RULES}/camera_annotation_parser.raw.combined.out.rules";
+my $cmd = "wc -l $rules_file";
+my $results = `$cmd`;
+chomp $results;
+#print "$results\n";
+my @line = split '\s', $results;
+$counts{RULES} = $line[0];
+#print "RULES $line[0]\n";
+
+my $cmd = "awk -F '\t' '{print \$4}' $rules_file | sed 's/.*UniRef.*/UniRef/' | sed 's/.*PF0.*/PFAM/' | sed 's/.*TIGR.*/TIGRFAM/' | sed 's/N\\/A/HYPOTHETICAL/' | sort | uniq -c";
+#print $cmd;
+my $results = `$cmd`;
+#print "$results\n";
+my @lines = split '\n', $results;
+foreach my $line (@lines) {
+	$line =~ s/^\s+//;
+	my @counts = split '\s', $line; 
+	$counts{$counts[1]} = $counts[0];
+}
+
+my $txt;
+foreach my $col (@order) {
+	$txt .= "$counts{$col}\t"
+}
+chop $txt;
+print "$results_path\t$txt\n";

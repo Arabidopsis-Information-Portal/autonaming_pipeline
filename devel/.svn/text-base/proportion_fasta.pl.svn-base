@@ -1,0 +1,48 @@
+#!/usr/local/bin/perl
+
+use strict;
+use Bio::SeqIO;
+require "/export/workspace/mgx-prok-annotation-pipeline/trunk/devel/mg_lib.pl";
+
+#use lib "/usr/local/devel/VIRIFX/software/VGD/lib";
+#use Getopt::Euclid 0.2.4 qw(:vars);
+
+my $file = $ARGV[0];
+my $results_path = $ARGV[1];
+my $proportion = $ARGV[2];
+
+if ($proportion > 1 || $proportion <= 0 ) {
+	die "$proportion must be less than 1 and greater than 0.\n";
+}
+
+my $in = Bio::SeqIO->new(-file => "$file");
+
+my $count = `grep ">" $file -c`;
+chomp $count;
+my $target = $proportion * $count;
+
+print "C: $count\n$proportion: $target\n";
+
+my $in_file = "$results_path/proportion$proportion.fasta";
+my @list;
+push @list, $in_file; 
+
+my $list_file = "$results_path/input$proportion.list";
+write_list_file($list_file, \@list);
+
+my $iprop = (1-$proportion);
+my $out_file = "$results_path/proportion$iprop.fasta";
+
+my $seq_count = 0;
+my $file_count = 0;
+
+my $oseq_in = Bio::SeqIO->new(-file => ">$in_file", -format => "fasta");
+my $oseq_out = Bio::SeqIO->new(-file => ">$out_file", -format => "fasta");
+while (my $seq = $in->next_seq()) {
+	$seq_count ++;
+	if ($seq_count <= $target) {
+		$oseq_in->write_seq($seq);
+	} else {
+		$oseq_out->write_seq($seq);
+	}
+}

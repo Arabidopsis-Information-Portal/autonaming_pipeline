@@ -1,0 +1,6 @@
+#!/usr/local/bin/perl
+
+use strict;
+
+use lib "/usr/local/devel/VIRIFX/software/VGD/lib";
+use Getopt::Euclid 0.2.4 qw(:vars);

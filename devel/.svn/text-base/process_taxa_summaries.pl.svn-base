@@ -1,0 +1,154 @@
+#!/usr/local/bin/perl
+
+use strict;
+use Config::IniFiles;
+use FindBin;
+require "$FindBin::Bin/mg_lib.pl";
+
+my $infile = $ARGV[0];
+my $results_path = $ARGV[1];
+my $config = $ARGV[2];
+my $tag = $ARGV[3];
+
+my $cfg;
+if ($config) {
+	$cfg = Config::IniFiles->new( -file => "$config" ) || die "cannot parse user suplied config file.\n";
+}
+
+my $snapshot_dir;
+if ($cfg->val('UNIREF', 'snapshot_dir')) {
+	$snapshot_dir = $cfg->val('UNIREF', 'snapshot_dir');
+} else {
+	$snapshot_dir = "/usr/local/projects/DB/MGX/mgx-prok-annotation/20101221";
+}
+my $taxa_filter;
+if ($cfg->val('UNIREF', 'taxa_filter')) {
+	$taxa_filter = $cfg->val('UNIREF', 'taxa_filter')
+} else {
+	$taxa_filter = "$results_path/taxa_filter.txt";  ## will create an empty filter file if none exists
+	system ("touch $taxa_filter");
+}
+
+my @columns = (1,7,11);
+my %col_names = (
+	7 => "best_guess",
+	8 => "90",
+	9 => "75",
+	10 => "60",
+	11 => "45",	
+);
+my %taxa_cols = (
+	2 => "Superkingdom",
+	3 => "Kingdom",
+	4 => "Phylum",
+	5 => "Class",
+	6 => "Order",
+	7 => "Family",
+	8 => "Genus",
+	9 => "Species",
+);
+
+my %EXECS = (
+	"AccEv" => "/local/devel/VIRIFX/software/AnnotationTools/Accumulate_Evidence_Across_Hits/Accumulate_Evidence_Across_Hits.pl",
+	"SumTab" => "/local/devel/VIRIFX/software/site_comparison/by_taxonomic_assignment/SummaryTable_Utilities/List_to_Summary_Table.pl",
+	"GetLev" => "/local/devel/VIRIFX/software/AnnotationTools/Estimate_Taxa_from_Alignment/Get_Higher_Levels.pl",
+	"FilterTaxa" => "/local/devel/VIRIFX/software/AnnotationTools/Filter_Annotation_By_TaxaID/Filter_Annotation_By_TaxaID.pl",
+	"FilterTN" => "$FindBin::Bin/filter_file_by_ids.pl",
+);
+
+my %two_col;
+my $count = 1;
+for (my $i = $columns[1]; $i <= $columns[2]; $i ++) {
+	my $cut_prefix = "$results_path/sample_taxa.cutoff.$col_names{$i}";
+	my $two_col = "$cut_prefix.tsv";
+
+	my $cmd = "awk '{print \$$columns[0]\"\t\"\$$i}' $infile > $two_col";
+	print "$cmd\n";
+	system $cmd;
+	
+	my $cmd = "$EXECS{GetLev} -t $two_col -m $snapshot_dir/names.tsv -d $snapshot_dir/nodes.tsv -l $snapshot_dir/levels.tsv -o $cut_prefix -h";
+	print "$cmd\n";
+	system $cmd;
+
+	my $tn_file = "$cut_prefix.taxa_names.tsv";
+	my $ti_file = "$cut_prefix.taxa_ids.tsv";
+
+	if ($col_names{$i} ne 'best_guess') {
+		my $filtered_file = &filter_taxa($infile,$taxa_filter,$ti_file,$col_names{$i});
+		my $filtered_prefix = "$cut_prefix.filtered";
+		&create_summary_tables($filtered_file,$filtered_prefix,$tn_file,$count,$tag,'yes');
+	} else {
+		&create_summary_tables($infile,$cut_prefix,$tn_file,$count,$tag);
+	}	
+	$count ++;
+}
+
+### do sub routine to iterate over 45, 60, 75, 90 cutoff tax asignments  creates two column file above including new filtering get_higher levels
+
+sub filter_taxa {
+	my $file = shift;
+	my $taxa_filter = shift;
+	my $ti_file = shift;
+	my $cutoff = shift;
+	my $filter_prefix = $file;
+	$filter_prefix =~ s/.tsv/.cutoff.$cutoff.filtered/;
+	my $filtered_file = "$filter_prefix.kept";
+
+	my $cmd = "$EXECS{FilterTaxa} -a $file -t $ti_file -f $taxa_filter -o $filter_prefix";
+	print "$cmd\n";
+	system $cmd;
+	
+	return $filtered_file;
+}
+
+sub create_summary_tables {
+	my $file = shift;
+	my $outfile = shift;
+	my $tn_file = shift;
+	my $count = shift;
+	my $tag = shift;
+	my $filter = shift;
+	my $cut_prefix = $outfile;
+	
+	my $cmd = "$EXECS{SumTab} -i $file -o $outfile -c $count";
+	if ($tag) {
+		$cmd .= " -n $tag";
+	}
+	print "$cmd\n";
+	system $cmd;
+
+	if ($filter) {
+		my $remo = $file;
+		$remo =~ s/.kept/.remo/;
+		$tn_file = &filter_tn_file($tn_file,$remo); 
+	}
+
+	foreach my $col (keys %taxa_cols) {
+		my $taxa_out = "$cut_prefix.$taxa_cols{$col}";
+		my $cmd = "$EXECS{SumTab} -i $tn_file -o $taxa_out -c $col";
+		if ($tag) {
+			$cmd .= " -n $tag";
+		}
+		print "$cmd\n";
+		system $cmd;
+	}
+}
+
+sub filter_tn_file {
+	my $file = shift;
+	my $filter_ids = shift;
+	my $filter_list = "$filter_ids.list";
+	
+	my $cmd = "awk '{print \$1}' $filter_ids > $filter_list";
+	print "$cmd\n";
+	system $cmd;
+	
+	my $filtered_file = $file;
+	$filtered_file =~ s/.tsv/.filtered.tsv/; 
+	
+	my $cmd = "$EXECS{FilterTN} $file $filter_list exclude > $filtered_file";
+	print "$cmd\n";
+	system $cmd;
+		
+	return $filtered_file;
+}

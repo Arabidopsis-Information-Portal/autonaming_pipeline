@@ -1,0 +1,36 @@
+#!/usr/local/bin/perl
+
+use strict;
+use Config::IniFiles;
+use FindBin;
+require "$FindBin::Bin/mg_lib.pl";
+
+my $list = $ARGV[0];
+my $project_code = $ARGV[1];
+
+my $uniref = "/usr/local/devel/VIRIFX/users/sschobel/mgx-prok-devel/uniref_blastp.pl";
+
+my @files;
+open (IN, $list) || die "Cannot open $list. $!\n";
+while (<IN>) {
+	chomp $_;
+	push @files, $_;
+}
+close IN;
+
+foreach my $item (@files) {
+	my @line = split '\t', $item;
+	
+	print "$line[0]\t$line[1]\n";
+	
+	my $input_file = $line[1];
+	$input_file =~ s/uniref_results\//input_subsample.list/;
+	my $results_path = $line[1];
+	my $tag = $line[1];
+	my $config = $line[1];
+	$config =~ s/uniref_results\//config3.ini/;
+	
+	my $cmd = "$uniref --infile $input_file --skip_blast --results_path $results_path --project_code $project_code --config $config --project_tag $tag";
+	print "$cmd\n";
+	system $cmd;
+}
