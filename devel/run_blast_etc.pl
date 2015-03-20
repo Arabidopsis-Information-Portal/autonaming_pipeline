@@ -23,7 +23,7 @@ my $cfg;
 if ($config) {
 	$cfg = Config::IniFiles->new( -file => "$config" ) || die "cannot parse user suplied config file.\n";
 }
-my $path = &get_lib_path($cfg);
+my $path = &get_lib_path($cfg,$service);
 
 my @files;
 

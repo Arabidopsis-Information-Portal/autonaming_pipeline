@@ -292,11 +292,12 @@ sub print_time {
 
 sub get_lib_path {
 	my $cfg = shift;
+	my $service = shift;
 	my $path;
 
-	if ($cfg->val('UNIREF', 'unirefdb') eq 'UniRef90') {
+	if ($cfg->val($service, 'unirefdb') eq 'UniRef90') {
 		$path = "/usr/local/common/mgx-prok-annotation/3.0.0";
-	} elsif ($cfg->val('UNIREF', 'unirefdb') eq 'UniRef100') {
+	} elsif ($cfg->val($service, 'unirefdb') eq 'UniRef100') {
 		 $path = "/usr/local/common/mgx-prok-annotation/2.7.1"
 	} else {
 		$path = "/usr/local/common/mgx-prok-annotation/2.7.1";

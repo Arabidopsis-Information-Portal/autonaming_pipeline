@@ -11,6 +11,7 @@ my $file = $ARGV[0];
 my $results_path = $ARGV[1];
 my $snapshot_dir = $ARGV[2];
 my $config = $ARGV[3];
+my $service = $ARGV[4];
 
 my $program_path = $0;
 my @prog = split '/', $program_path;
@@ -21,7 +22,7 @@ my $cfg;
 if ($config) {
 	$cfg = Config::IniFiles->new( -file => "$config" ) || die "cannot parse user suplied config file.\n";
 }
-my $path = &get_lib_path($cfg);
+my $path = &get_lib_path($cfg,$service);
 
 #use lib "/usr/local/devel/VIRIFX/software/VGD/lib";
 #use Getopt::Euclid 0.2.4 qw(:vars);

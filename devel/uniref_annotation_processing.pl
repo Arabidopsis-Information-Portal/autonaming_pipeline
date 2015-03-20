@@ -138,6 +138,9 @@ foreach my $dir (@files) {
 	if ($config) {
 		$sort_cmd .= " $config";
 	}
+	if ($service) {
+		$sort_cmd .= " $service";
+	}
 	my $sh_script = write_shell_script($dir,$sort_prog,$sort_cmd);
 	print "$sort_cmd\n";
 
