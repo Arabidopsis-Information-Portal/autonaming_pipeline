@@ -110,12 +110,12 @@ my $merge_and_parse = "$FindBin::Bin/uniref_merge_and_parse.pl";
 my $snapshot_dir;
 my $uniref;
 if ($cfg->val($service, 'snapshot_dir')) {
-	$snapshot_dir = $cfg->val('UNIREF', 'snapshot_dir');
+	$snapshot_dir = $cfg->val($service, 'snapshot_dir');
 }# else {
 #	$snapshot_dir = "/usr/local/projects/DB/MGX/mgx-prok-annotation/20101221";
 #}
 if ($cfg->val($service, 'blast_db')) {
-	$uniref = $cfg->val('UNIREF', 'blast_db');
+	$uniref = $cfg->val($service, 'blast_db');
 }# else {
 #	$uniref = "/usr/local/projects/CAMERA/runtime-shared/filestore/system/BlastDatabases/1550565668133273887/";
 #}
