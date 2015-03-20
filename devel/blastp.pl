@@ -178,6 +178,9 @@ foreach my $file (@files2) {
 	if ($config) {
 		$blast_cmd .= " $config";
 	}
+	if ($service) {
+		$blast_cmd .= " $service";
+	}
 
 	print "$blast_cmd\n";
 
@@ -214,6 +217,9 @@ if ($queue) {
 }
 if ($tag) {
 	$anno_cmd .= " --project_tag $tag";
+}
+if ($service) {
+	$anno_cmd .= " $service";
 }
 print "$anno_cmd\n";
 system $anno_cmd;

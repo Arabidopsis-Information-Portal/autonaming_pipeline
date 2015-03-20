@@ -26,6 +26,13 @@ full path to the location results files should be written
 =for Euclid:
     results_path.type: string
 
+=item [-]-service  <service>
+
+service type to indicate where to look for optional parameter configurations
+
+=for Euclid:
+    service.type: string
+
 =item [-]-project_code  <project_code>
 
 charge code for using the grid
@@ -69,7 +76,7 @@ This script will run .
 use strict;
 use Config::IniFiles;
 use FindBin;
-require "$FindBin::Bin/mg_lib.pl";
+require "$FindBin::Bin/pipeline_lib.pl";
 
 use lib "/usr/local/devel/VIRIFX/software/VGD/lib";
 use Getopt::Euclid 0.2.4 qw(:vars);
@@ -80,6 +87,7 @@ my $queue = $ARGV_queue;
 my $config = $ARGV_config;
 my $grid_code = $ARGV_project_code;
 my $tag = $ARGV_project_tag;
+my $service = $ARGV_service;
 
 my $program_path = $0;
 my @prog = split '/', $program_path;
@@ -101,16 +109,16 @@ my $merge_and_parse = "$FindBin::Bin/uniref_merge_and_parse.pl";
 
 my $snapshot_dir;
 my $uniref;
-if ($cfg->val('UNIREF', 'snapshot_dir')) {
+if ($cfg->val($service, 'snapshot_dir')) {
 	$snapshot_dir = $cfg->val('UNIREF', 'snapshot_dir');
-} else {
-	$snapshot_dir = "/usr/local/projects/DB/MGX/mgx-prok-annotation/20101221";
-}
-if ($cfg->val('UNIREF', 'blast_db')) {
+}# else {
+#	$snapshot_dir = "/usr/local/projects/DB/MGX/mgx-prok-annotation/20101221";
+#}
+if ($cfg->val($service, 'blast_db')) {
 	$uniref = $cfg->val('UNIREF', 'blast_db');
-} else {
-	$uniref = "/usr/local/projects/CAMERA/runtime-shared/filestore/system/BlastDatabases/1550565668133273887/";
-}
+}# else {
+#	$uniref = "/usr/local/projects/CAMERA/runtime-shared/filestore/system/BlastDatabases/1550565668133273887/";
+#}
 
 @files = &read_list_file($list);
 
