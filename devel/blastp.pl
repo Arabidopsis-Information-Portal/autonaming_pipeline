@@ -219,7 +219,7 @@ if ($tag) {
 	$anno_cmd .= " --project_tag $tag";
 }
 if ($service) {
-	$anno_cmd .= " $service";
+	$anno_cmd .= " --service $service";
 }
 print "$anno_cmd\n";
 system $anno_cmd;
