@@ -159,15 +159,15 @@ print "Done converting to btab and parsing\n";
 my $final_btab = "$results_path/uniref_blastp_btab.combined.out.parsed";
 &cat_files(\@parsed_files, $final_btab);
 
-my $final_taxa = "$results_path/sample_taxa_summary.tsv";
-&cat_files(\@taxa_files, $final_taxa);
+#my $final_taxa = "$results_path/sample_taxa_summary.tsv";
+#&cat_files(\@taxa_files, $final_taxa);
 
-my $final_tax_anno = "$results_path/sample_annotation_summary.tsv";
-&cat_files(\@tax_anno_files, $final_tax_anno);
+#my $final_tax_anno = "$results_path/sample_annotation_summary.tsv";
+#&cat_files(\@tax_anno_files, $final_tax_anno);
 
-print "Done merging all parsed btab and annotation files.\n";
+print "Done merging all parsed btab files.\n";
 
-print "Generating annotation and taxa summary tables.\n";
+#print "Generating annotation and taxa summary tables.\n";
 
 #my $cmd = "$pro_taxa $final_taxa $results_path $config $tag";
 #print "$cmd\n";
@@ -177,4 +177,5 @@ print "Generating annotation and taxa summary tables.\n";
 #print "$cmd\n";
 #system $cmd;
 
-print "Done generating annotation and taxa summary tables.\n";
+#print "Done generating annotation and taxa summary tables.\n";
+&print_time("ENDTIME");
