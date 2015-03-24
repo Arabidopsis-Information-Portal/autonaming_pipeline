@@ -32,6 +32,13 @@ charge code for using the grid
 
 =for Euclid:
     project_code.type: string
+
+=for Euclid:
+    results_path.type: string
+
+=item [-]-service  <service>
+
+service type to indicate where to look for optional parameter configurations
     
 =back
 
@@ -74,6 +81,7 @@ my $results_path = $ARGV_results_path;
 my $queue = $ARGV_queue;
 my $config = $ARGV_config;
 my $grid_code = $ARGV_project_code;
+my $service = $ARGV_service;
 
 my $program_path = $0;
 my @prog = split '/', $program_path;
@@ -91,16 +99,16 @@ my $run_hmmscan = "$FindBin::Bin/run_hmmscan_etc.pl";
 
 my $snapshot_dir;
 my $hmmdb;
-if ($cfg->val('HMM3', 'snapshot_dir')) {
-	$snapshot_dir = $cfg->val('HMM3', 'snapshot_dir');
-} else {
+if ($cfg->val($service, 'snapshot_dir')) {
+	$snapshot_dir = $cfg->val($service, 'snapshot_dir');
+} #else {
 	#$snapshot_dir = "/usr/local/projects/DB/MGX/mgx-prok-annotation/20101221";
-}
-if ($cfg->val('HMM3', 'hmmdb')) {
-	$hmmdb = $cfg->val('HMM3', 'hmmdb');
-} else {
+#}
+if ($cfg->val($service, 'hmmdb')) {
+	$hmmdb = $cfg->val($service, 'hmmdb');
+} #else {
 	#$hmmdb = "/usr/local/projects/CAMERA/runtime-shared/filestore/system/Hmmer3Databases/1552815578744359083/ALL_LIB.HMM";
-}
+#}
 
 @files = &read_list_file($list);
 
