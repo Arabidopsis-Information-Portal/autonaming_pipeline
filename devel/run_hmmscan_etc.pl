@@ -29,7 +29,12 @@ my $path = &get_lib_path($cfg);
 #use Getopt::Euclid 0.2.4 qw(:vars);
 my $hmm3 = "/usr/local/packages/hmmer-3.0/bin/hmmscan";
 my $htab = "$FindBin::Bin/htab.pl";
-my $htabdb = "$snapshot_dir/hmm3.db";
+my $htabdb;
+if ($snapshot_dir =~ /.*db$/) {
+	$htabdb = $snapshot_dir;
+} else {
+	$htabdb = "$snapshot_dir/hmm3.db";
+}
 my $parser = "$FindBin::Bin/camera_parse_annotation_results_to_text_table.pl";
 my $shell_config = "$FindBin::Bin/etc/shell.config";
 my $shell_template = &write_shell_template($shell_config,$path,$results_path);
