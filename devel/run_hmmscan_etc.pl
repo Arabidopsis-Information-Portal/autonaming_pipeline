@@ -32,6 +32,9 @@ my $htab = "$FindBin::Bin/htab.pl";
 my $htabdb;
 if ($snapshot_dir =~ /.*db$/) {
 	$htabdb = $snapshot_dir;
+	my @path = split /\//, $snapshot_dir;
+	my $last = pop @path;
+	$snapshot_dir =~ s/$last//;
 } else {
 	$htabdb = "$snapshot_dir/hmm3.db";
 }
