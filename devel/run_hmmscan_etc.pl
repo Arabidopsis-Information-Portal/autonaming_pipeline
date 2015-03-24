@@ -3,7 +3,7 @@
 use strict;
 use Config::IniFiles;
 use FindBin;
-require "$FindBin::Bin/mg_lib.pl";
+require "$FindBin::Bin/pipeline_lib.pl";
 
 &print_time("STARTTIME");
 

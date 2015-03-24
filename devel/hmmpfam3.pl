@@ -71,7 +71,7 @@ This script will run .
 use strict;
 use Config::IniFiles;
 use FindBin;
-require "$FindBin::Bin/mg_lib.pl";
+require "$FindBin::Bin/pipeline_lib.pl";
 
 use lib "/usr/local/devel/VIRIFX/software/VGD/lib";
 use Getopt::Euclid 0.2.4 qw(:vars);
