@@ -29,7 +29,7 @@ system("touch $id_rep");
 #use lib "/usr/local/devel/VIRIFX/software/VGD/lib";
 #use Getopt::Euclid 0.2.4 qw(:vars);
 
-my $tmhmm = "$FindBin::Bin/../tmhmm";
+my $tmhmm = "$FindBin::Bin/../bin/tmhmm";
 my $tmhmm2bsml = "$FindBin::Bin/tmhmm2bsml.pl";
 my $parser = "$FindBin::Bin/camera_parse_annotation_results_to_text_table.pl";
 my $shell_config = "$FindBin::Bin/etc/shell.config";
