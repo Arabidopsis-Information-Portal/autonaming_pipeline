@@ -32,6 +32,13 @@ charge code for using the grid
 
 =for Euclid:
     project_code.type: string
+
+=item [-]-service  <service>
+
+service type to indicate where to look for optional parameter configurations
+
+=for Euclid:
+    service.type: string
     
 =back
 
@@ -63,7 +70,7 @@ This script will run .
 
 use strict;
 use FindBin;
-require "$FindBin::Bin/mg_lib.pl";
+require "$FindBin::Bin/pipeline_lib.pl";
 
 use lib "/usr/local/devel/VIRIFX/software/VGD/lib";
 use Getopt::Euclid 0.2.4 qw(:vars);
@@ -73,6 +80,7 @@ my $results_path = $ARGV_results_path;
 my $queue = $ARGV_queue;
 my $config = $ARGV_config;
 my $grid_code = $ARGV_project_code;
+my $service = $ARGV_service;
 
 my $program_path = $0;
 my @prog = split '/', $program_path;
