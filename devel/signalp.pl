@@ -142,6 +142,6 @@ wait_for_grid_jobs_arrays( \@JOBS,1,$max_job_array ) if ( scalar @JOBS );
 
 print "All jobs complete.\n";
 
-my $combined = "$results_path/signalp_combined_results.gff";
+my $combined = "$results_path/signalp_combined_results.gff.parsed";
 my $cat = "cat @results_files > $combined";
 system "$cat";
