@@ -114,9 +114,9 @@ foreach my $file (@files2) {
 	my $dir = "$results_path/partitions/$in_name";
 	my $outfile = "$dir/signalp_results.$in_name.gff";
 	
-	my $parsed_file = $outfile . ".parsed";	
+#	my $parsed_file = $outfile . ".parsed";	
 	
-	push @results_files, $parsed_file;
+	push @results_files, $outfile;
 }
 
 my @JOBS;
@@ -142,6 +142,6 @@ wait_for_grid_jobs_arrays( \@JOBS,1,$max_job_array ) if ( scalar @JOBS );
 
 print "All jobs complete.\n";
 
-my $combined = "$results_path/signalp_combined_results.parsed";
+my $combined = "$results_path/signalp_combined_results.gff";
 my $cat = "cat @results_files > $combined";
 system "$cat";
