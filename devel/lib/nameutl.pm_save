@@ -1,0 +1,2345 @@
+#!/usr/local/bin/perl
+#use warnings;
+use strict;
+require "/local/devel/ANNOTATION/APIS/pipeline/lib/com2GOutl.pm";
+our $verbose;
+
+my $greek = "alpha|beta|gamma|delta|eta|epsilon|iota|mu|omega|omnicron|pi|theta|tau|zeta";
+my $roman = "i|ii|iii|iv|v|vi|vii|viii|ix|x";
+my $kingdoms = "plant|animal|insect|eukar[a-z]+|prokar[a-z]+|bacteri[umal]+|archa[a-z]+|viral|virus|fung[usali]+";
+my $simpledomains = "domain|repeat|motif|signature";
+my $domains = "$simpledomains|lrr|coil|hfold|fold|ploop|loop|helix|[a-z]box|box|knuckle|zipper|finger|hand|site";
+my $isoforms = "isoform|isozyme|splice *form|splice *variant|variant";
+my $groups = "subgroup|subtype|subclass|group|type|class";
+my $homologs = "paralog|ortholog|homolog|paralogue|orthologue|homologue";
+my $homologous = "paralogous|homologous|orthologous|paralogy|orthology|homology|similar[ityies]*";
+my $strength = "poor[ly]*|wea[ly]*|low|minor|some|moderate|medium|good|very|strong[ly]*|high[ly]*|major|significant";
+my $enzymes = "[a-z]{3,}ase|lyase|rnase|dnase";
+my $gerunds = "activating|regulating|transporting|inhibiting|promoting|sup{1,2}ressing|activation|regulation|transportation|inhibition|promotion|sup{1,2}ression";
+my %gerund2noun = (
+	"activating" => "activator",
+	"regulating" => "regulator",
+	"transporting" => "transporter",
+	"inhibiting" => "inhibitor",
+	"promoting" => "promotor",
+	"supressing" => "suppressor",
+	"suppressing" => "suppressor",
+	"activation" => "activator",
+	"regulation" => "regulator",
+	"transportation" => "transporter",
+	"inhibition" => "inhibitor",
+	"promotion" => "promotor",
+	"supression" => "suppressor",
+	"suppression" => "suppressor" );
+my $subunits = "component|subunit|chain";
+my $aminoacids = "amino *acid|histidine|alanine|isoleucine|arginine|leucine|asparagine|lysine|aspartic *acid|methionine|"
+	. "cysteine|phenylalanine|glutamic *acid|threonine|glutamine|tryptophan|glycine|valine|ornithine|proline|serine|tyrosine";
+my $keeppros = "[a-z]{3,}ing|[a-z]{3,}ion|[a-z]*porter|regulat[a-z]+|inter[a-z]+|protein|coupled|linked|disul[phf]+ide";
+my $simpleprotypes = "isoform|isoenzyme|isozyme|protein|enzyme|poly[- ]*peptide";
+my $protypes = "[a-z]+protein|$simpleprotypes";
+my $goodends = "$protypes|$enzymes|$subunits|antigen|chaperone|histone|[a-z]{3,}or|[a-z]{3,}er|[a-z]{3,}in";
+my $badends = "[a-z]*ory|[a-z]*ine|[a-z]*ing|like|related|carrier|copper|cluster|coatomer|transfer|[a-z]*family|[a-z]membrane|secreted|transposon|coenzyme|$aminoacids|$domains|$groups|$kingdoms"; 
+my $unknowns = "unknown|uncharacteri[sz]ed|hypothetical|unidentified|unnamed|undetermined|indeterminate|unclas+if[ie]+d";
+
+sub special_words {
+	return ( $greek, $roman, $kingdoms,
+		$domains, $isoforms, $groups, $subunits,
+		$homologs, $homologous, $strength, $enzymes,
+		$gerunds, \%gerund2noun,
+		$goodends, $badends,
+		$keeppros, $aminoacids,
+		$unknowns );
+}
+
+sub cazy_name_parser {
+	my ( $id ) = @_;
+
+	my $name = cazy_acc_to_name( $id );
+	$name =~ s/  +/ /g;
+	
+	return $name;
+}
+
+sub cazy_acc_to_name {
+	my ( $acc ) = @_;
+	
+	my ( undef, $id ) = split /_/, $acc;
+	
+	if ( $id =~ /CBM([0-9]+)/i ) {
+		return "carbohydrate-binding module family $1 protein";
+	}
+	elsif ( $id =~ /GH([0-9]+)/i ) {
+		return "glycoside hydrolase family $1 protein";
+	}
+	elsif ( $id =~ /GT([0-9]+)/i ) {
+		return "glycosyltransferase family $1 protein";
+	}
+	elsif ( $id =~ /PL([0-9]+)/i ) {
+		return "polysaccharide lyase family $1 protein";
+	}
+	elsif ( $id =~ /CE([0-9]+)/i ) {
+		return "carbohydrate esterase family $1 protein";
+	}
+	else {
+		return "$acc family protein";
+	}
+}
+
+sub simple_name_parser {
+	my ( $defline ) = @_;
+
+	my $name = $defline;
+	$name =~ s/\t/ /g;
+	
+	return $name;	
+}
+
+sub unipro_name_parser {
+	my ( $defline ) = @_;
+	
+	my $name = $defline;
+	$name =~ s/ +OS=.*//;	
+	$name =~ s/ +Tax=.*//;	
+	$name =~ s/ +n=[1-9][0-9]* *$//;	
+	$name =~ s/ +clone *$//;
+	$name =~ s/ +clone .*$//;
+	
+	if ( ! $name ) { return "" }
+
+	return $name;
+}
+
+sub tair_name_parser {
+	my ( $defline ) = @_;
+	
+	my @fields = split /\|/, $defline;
+	my $symbol = $fields[1];
+	$symbol =~ s/^.*://;
+	$symbol =~ s/ //g;
+	$symbol =~ s/,.*//;
+	
+	my $name = $fields[2];
+	$name =~ s/^ +//;
+	$name =~ s/ +$//;
+	
+	if ( $symbol gt "" && $name =~ /^ *(from|of) /  ) {
+		$name = "$symbol, $name";
+	}
+	
+	if ( length( $name ) > 120 ) { $name = "" }
+	if ( $name =~ /^(.*) +([a-z]*family|$enzymes|enzyme|protein)s* +with +(.*)$/i ) {
+		my $prot = "$1 $2";
+		my $detail = $3;
+		if ( $detail =~ /\b(domains*|repeats*)\b/i ) {
+			$name = "$detail $prot";			
+		}
+	}
+	
+	return $name;
+}
+
+sub tigrfam_name_parser {
+	my ( $id, $definition, $iso_type ) = @_;
+	if ( ! defined $iso_type ) { $iso_type = "other" }
+	my $name = $definition;
+	if ( $name =~ /^[^ ]+: *(.{3,})$/ ) {
+		$name = $1;
+		if ( $name =~ /(TIGR|PF)[0-9]+ +([a-z]*family|domain|repeat|motif|signature)/i ) {
+			my $type = $2;
+			if ( $id =~ /^DUF[0-9]+$/ ) {
+				$name = "uncharacterized $type $id protein";
+			}
+			else {
+				$name = "";
+			}
+		} 
+	}
+	
+	if ( $name =~ /^(.*\b($domains)\b) +(for|of) +(.*)$/i ) {
+		my $dom = $1;
+		my $desc = $4;
+		if ( $dom !~ /,;\// ) {
+			$name = "$desc $dom";
+		}
+	}
+
+	if ( $name =~ /\W(protein|$enzymes|enzyme|chain|subunit|component|\w{3,}or|\w{3,}er)[- ]+([^ ]+)$/i ) {
+		my $type = $1;
+		if ( $type =~ /finger$/i ) {
+			$name .= " protein";
+		}
+		else {
+			my $detail = $2;
+			if ( $detail =~ /^[([]/ ) { $detail =~ s/^.// }
+			if ( $detail =~ /[)\]]$/ ) { $detail =~ s/.$// }
+			$detail =~ s/^ +//;
+			$detail =~ s/ +$//;
+			if ( $detail !~ /[0-9]/ && length( $detail ) > 6 ) {
+				$name .= " protein";
+			}
+		}
+	}
+	elsif ( $name !~ /\W(protein|$enzymes|enzyme|chain|subunit|component|\w{3,}or|\w{3,}er)$/i ) {
+		$name .= " protein";
+	}
+	elsif ( $name =~ /finger$/i ) {
+		$name .= " protein";
+	}
+	
+	$name =~ s/\b(PF|TIGR)[0-9]+\b//gi;
+	$name =~ s/[- ]+(binding|directed|depend[ae]nt)/-$1/gi;
+	$name =~ s/^ +//;
+	$name =~ s/  +/ /g;
+	$name =~ s/ +$//;
+
+	return $name ;
+}
+
+sub nr_name_parser {
+	my ( $defline ) = @_;
+	
+	my $name = $defline;
+	$name =~ s/; *altname[:=].*//i;
+	$name =~ s/; *short[:=].*//i;
+	$name =~ s/; *flags[:=].*//i;
+	$name =~ s/^.*recname[:=] *//i;
+	$name =~ s/^.*full[:=] *//i;
+	
+	# remove/truncate at these phrases
+	if ( $name =~ / [Tt]itle:/) {
+		$name =~ s/^.* [Tt]itle: *//;
+		my @tmp = split( "-", $name );
+		pop @tmp;
+		$name = join( "-", @tmp );
+	}
+
+	if ( ! $name ) { return "" }
+	
+	return $name;
+}
+
+sub cdd_name_parser {
+	my ( $defline ) = @_;
+	my $dbg = 0;
+	if ( $dbg ) { print "\nCDD0: $defline\n" }	
+
+	my $name = $defline;
+	if ( $name =~ /Uncharacterized conserved protein/i ) { return "" }
+	if ( $name =~ /(protein|doimain) of unknown function/i ) { return "" }
+	if ( $name =~ /hypothetical protein/i ) { return "" }
+
+	$name =~ s/\t/ /g;
+	$name =~ s/^gnl[^ ]*  *//;
+	$name =~ s/ *$//;
+	$name =~ s/^[^,]*, *//;
+	$name =~ s/, +(domain|repeat|motif).*//i;
+	$name =~ s/\b(nucleo[st]ide|peptide)s+\b/$1/gi;
+	$name =~ s/\b($enzymes|[a-z]*porter|[a-z]*enzyme|[a-z]*protein|domain|repeat|system)s\b/$1 family/gi;
+	$name =~ s/\bfamily +([a-z]*family)/$1/gi;
+	$name =~ s/\bCD\b/domain/g;
+	$name =~ s/\b(component)s+\b/$1/gi;
+	$name =~ s/families/family/gi;
+	$name =~ s/\b($enzymes)s\b/$1/gi;
+	$name =~ s/($enzymes|protein|domain|repeat|family) +in .*/$1/gi;
+	$name =~ s/\. +([a-z])/. $1/g;
+	$name =~ s/Arabidopsis/plant/gi;
+	$name =~ s/\bAt[0-9]+g[0-9]+\b/(plant)/gi;
+	$name =~ s/[Rr]esistant to [A-Z]\..*/resistance/g;
+	$name =~ s/[-:;, ]+$//;
+	$name =~ s/\b(members of )(the )*//gi;
+	$name =~ s/[;.] .*//;
+	$name =~ s/ +and +(related|associated|similar).*/-like/gi;
+	$name =~ s/ +(proteins* +)*containing +(.*\b($domains))/ $2/i;
+	$name =~ s/\bprotein +([a-z]*famil[yies]+|domains*|repeats*)\b/$1/gi;
+	$name =~ s/\blike +family\b/like/gi;
+	if ( $dbg ) { print "CDD0z: $defline\n" }	
+
+	while ( $name =~ / +[({\[]*(are an{0,1} |is an{0,1} |found in |proteins* in |named for |belongs |exhibits* various |associated |duplicated |similar to |related to |play|contain|includ|involv|consist|catalyze|participat)/i ) {
+		if ( $dbg ) { print "CDD1a.1: $name\n" }
+		$name =~ s/ +[({\[]*(are an{0,1} |is an{0,1} |found in |proteins* in |named for |belongs |exhibits* |various |associated |duplicated |similar to |related to |play|contain|includ|involv|consist|catalyze|participat).*$//i;
+		if ( $dbg ) { print "CDD1a.2: $name\n" }
+#print "while1: $name\n";
+	}
+	$name =~ s/, *(domains*|proteins*|[a-z]*famil[yies]+) *$//i;
+	$name =~ s/[ ,]+$//;
+	if ( $dbg ) { print "CDD1a: $name\n" }
+
+	$name = fix_cdd_phrases( $name );
+	if ( $dbg ) { print "CDD1b: $name\n" }
+
+	while ( $name =~ / +[({\[]*(with |where |when |while |that |this |these |those |the |found |is |are |having |have |has  )/i ) {
+		$name =~ s/ +[({\[]*(with |where |when |while |that |this |these |those |the |found |is |are |having |have |has  ).*//i;
+#print "while2: $name\n";
+	}
+	$name =~ s/(family.{0,20}) of .*/$1/i;
+	$name =~ s/ +(and|or|is|are) *$//;
+	if ( $dbg ) { print "CDD1c: $name\n" }
+
+	if ( $name =~ /^[^:, ]{1,20}: *[^, ]{1,30}, *(.{1,100})$/ ) {
+		$name = $1;
+		if ( $dbg ) { print "CDD2a: $name\n" }
+		return final_cdd_adjustment( $name );
+	}
+	if ( $name =~ /^[^:, ]{1,20}, *[^, ]{1,30}: *(.{1,100})$/ ) {
+		$name = $1;
+		if ( $dbg ) { print "CDD2b: $name\n" }
+		return final_cdd_adjustment( $name );
+	}
+	if ( $name =~ /^[^:, ]{1,20}: *(.{1,100})$/ ) {
+		$name = $1;
+		if ( $dbg ) { print "CDD2c: $name\n" }
+		return final_cdd_adjustment( $name );
+	}
+	if ( $name =~ /^[^,: ]{1,30}, *(.{1,100}?)$/ ) {
+		$name = $1;
+		if ( $dbg ) { print "CDD2d: $name\n" }
+		return final_cdd_adjustment( $name );
+	}
+
+	$name =~ s/_/-/g;
+	if ( $name =~ /^([^,: ]{1,30}), *(.*)/ ) {
+		my $abbr = $1;
+		my $detail = $2;
+		if ( $abbr =~ / / || $abbr =~ /($enzymes)$/ ) {
+			if ( length( $detail ) < 40 ) {
+				if ( $dbg ) { print "CDD3a: $name\n" }
+				return final_cdd_adjustment( $name );
+			}
+		}
+		if ( $abbr !~ /\b($domains|[a-z]*family|like|related)$/i ) {
+			$abbr .= " domain";
+		}
+		if ( length( $detail ) < 40 ) {
+			$name = "$abbr ($detail)";
+			if ( $dbg ) { print "CDD3b: $name\n" }
+			return final_cdd_adjustment( $name );
+		}
+		else {
+			$name = $abbr;
+			if ( $dbg ) { print "CDD3c: $name\n" }
+			return final_cdd_adjustment( $name );
+		}
+	}
+	else {
+		if ( $dbg ) { print "CDD3c: $name\n" }
+		return final_cdd_adjustment( $name );
+	}
+}
+
+sub fix_cdd_phrases {
+	my ( $name ) = @_;
+	my $dbg = 0;
+	if ( $dbg ) { print "  phrin: $name\n" }
+	
+	if ( $name =~ /provisional/i ) { return "" }
+	
+	$name =~ s/^[,;. ]+//;
+	$name =~ s/[,;. ]+$//;
+	$name =~ s/^ *(a|an|the) +//i;
+	$name =~ s/ +\[[^[\]]*\]$//g;
+	$name =~ s/ +\([^()]*\)$//g;
+	$name =~ s/ +\{[^{}]*\}$//g;
+			
+	my @phrases = split /([;.,] +)/, $name;
+	for my $i ( 0..@phrases - 1 ) {
+		if ( $phrases[$i] =~ /^(a|an|this|the|these|related|play[edings]*|involv[edings]*|[a-z]{3,}ing|associated with|related to|with|similar[ity]*) /i ||
+				 $phrases[$i] =~ /\b($unknowns)\b/i ) {
+			$phrases[$i] = undef;
+			$phrases[$i+1] = undef;
+		}
+	}
+	
+	my $has_domain = 0;
+	for my $i ( 0..@phrases - 1 ) {
+		if ( $has_domain ) { $phrases[$i] = undef }
+		my $phrasei = $phrases[$i];
+		if ( ! defined $phrasei || $phrasei !~ /\w/ ) { next }
+		if ( $dbg ) { print "  phr$i: $phrasei\n" }
+
+		$phrasei =~ s/ +\[[^[\]]*\]$//g;
+		$phrasei =~ s/ +\([^()]*\)$//g;
+		$phrasei =~ s/ +\{[^{}]*\}$//g;
+		if ( $phrasei =~ /^(a|the|related) /i ) {
+			$phrasei =~ s/^(a|the|related) +//i;
+			if ( $dbg ) { print "  phr$i.a: $phrasei\n" }
+		}
+		if ( $phrasei =~ /^(.*\b($domains|$enzymes))s* *(of|in|from|to) +(.*)/i ) {
+			$phrasei = "$4 $1";
+			$phrasei =~ s/^(the|a|an) +//i;
+			if ( $dbg ) { print "  phr$i.b: $phrasei\n" }
+		}
+		elsif ( $phrasei =~ /^(.*) +of +(.*)/ ) {
+			$phrasei = "$2 $1";
+			$phrasei =~ s/^(the|a|an) +//i;
+			if ( $dbg ) { print "  phr$i.c: $phrasei\n" }
+		}
+		$phrases[$i] = $phrasei;
+		my $testi = lc( $phrasei );
+		$testi =~ s/[_\W]//g;
+		for my $j ( $i+1..@phrases-1 ) {
+			my $phrasej = $phrases[$j];
+			if ( defined $phrasej ) {
+				my $testj = lc( $phrasej );
+				$testj =~ s/[_\W]//g;
+				if ( index( $testj, $testi ) >= 0 ) {
+					$phrasei = undef;
+					$phrases[$i] = undef;
+					$phrases[$i+1] = undef;
+					last;
+				}
+			}
+		}
+		if ( $i > 0 && defined $phrasei &&
+				$phrasei =~ /\b($domains)\b/ &&
+				$phrasei !~ /^\W*(domain|repeat|motif)/i ) {
+			$has_domain = 1;
+		}		
+	}
+	@phrases = remove_undefs( @phrases );
+	while ( @phrases && $phrases[@phrases-1] !~ /\w/ ) {
+#print "while3: " . @phrases . "\n";
+		if ( $dbg ) { print "  phrcln: $phrases[@phrases-1]\n" }
+		pop @phrases;
+	}
+
+	$name = join( "", @phrases );
+	if ( $dbg ) { print "  phrjoin: $name\n" }
+	$name =~ s/[.;, ]+$//;
+	$name =~ s/^[.;, ]+//;
+	if ( $dbg ) { print "  phrout: $name\n" }
+	return $name;
+}
+
+sub final_cdd_adjustment {
+	my ( $name ) = @_;
+	
+	# remove parenthetical expression at end
+	$name =~ s/ +\[[^[\]]*\]\W*$//g;
+	$name =~ s/ +\([^()]*\)\W*$//g;
+	$name =~ s/ +\{[^{}]*\}\W*$//g;
+	$name =~ s/ +\[[^[\]]*$//g;
+	$name =~ s/ +\([^()]*$//g;
+	$name =~ s/ +\{[^{}]*$//g;
+
+	# remove empty parenthetical expression
+	$name =~ s/\(\W*\)//;
+	$name =~ s/\[\W*\]//;
+	$name =~ s/\{\W*\}//;
+	
+	# remove leading trailing punctaution
+	$name =~ s/^[-,;:. ]+//;
+	$name =~ s/[-,;:. ]+$//;
+	
+	# remove leading minor words
+	$name =~ s/^ *(an|a|these|the|this|of) +//i;
+
+	# family and...family
+	$name =~ s/ +[a-z]*family +and +(.{3,25}) +[a-z]*family/$1 family/i;
+
+	# catalytic domain	
+	$name =~ s/ \(c\)//gi;
+	$name =~ s/Catalytic/catalytic/gi;
+	$name =~ s/, (catalytic domain)/ $1/gi;
+
+	# add missing "domain"	
+	if ( length( $name ) < 15 && $name !~ /\b($domains|[a-z]*family)\b/i ) {
+		if ( $name !~ /(protein|enzyme|$enzymes)$/i ) {
+			$name .= " domain";
+		}
+	}
+
+	return $name;
+}
+
+sub standardize_case {
+	my ($names) = @_;
+
+	# compile list of words and their various capitalizations
+	my %cases;
+	for my $name ( @$names ) {
+		$name =~ s/\bCO-/co-/g;
+		
+		for my $word ( split /\W+/, $name ) {
+#print "  word: $word =>";
+			my $lower = lc($word);
+
+			# assume single letters are uppercase
+			if ( length( $word ) == 1 ) {
+				$word = uc( $word );
+#print " 1. $word";
+			}
+			# make sure these known words are appropriate mixed-case
+			elsif ( $lower =~ /^([a-z]tp|[rd]n)ases*$/ ) {
+				$word = uc( $1 ) . "ase";
+#print " 2.1 $word";
+			}
+			elsif ( $lower =~ /^rieske$/ ) {
+				$word = "Rieske";
+			}
+			elsif ( $lower =~ /^(r|t|ds|ss|sno|sn|s)*(dna|rna)$/ ) {
+				$word = lc( $1 ) . uc( $2 );
+			}
+			elsif ( $lower =~ /^(amp|gmp|imp|udp|utp|atp|abc|nad|nadh|nadp|nadph|sam|la|$roman|lrr|nbs|cc|fbd|rni)$/ ) {
+				$word = uc( $word );
+			}
+			# make sure these known words are lowercase
+			elsif ( $word =~ /^(locus|like|related|[a-z]*family|one|two|three|four|five|six|seven|eight|nine|ten|$domains|$isoforms|$groups|$subunits|$homologs|$greek|$aminoacids|$kingdoms)$/i ) {
+				$word = $lower;
+#print " 2. $word";
+			}
+			# assume longish word should be lowercase
+			elsif ( length( $word ) >= 6 && $word !~ /[0-9]/
+					&& $word !~ /[A-Z]{2,}[a-z]/ && $word !~ /[a-z][A-Z]/ ) {
+				$word = $lower;
+#print " 3. $word";
+			}
+			# treat initcap as lowercase
+			elsif ( length( $word ) > 3 && $word =~ /^[A-z][a-z]*$/ ) {
+				$word = $lower;
+#print " 4. $word";
+			}
+			else {
+#print " 5. $word";
+			}
+
+			# increment occurences of this capitalization
+			$cases{$lower}{$word}{text} = $word;
+			$cases{$lower}{$word}{cnt}++;
+			if ( $word eq $lower ) { $cases{$lower}{$word}{cnt} += 0.001 }
+#print " ($cases{$lower}{$word}{cnt})\n";
+		}
+	}
+
+	# determine most frequent capitalization for each word
+	for my $lower ( keys %cases ) {
+#print "word $lower";
+		my @forms = sort { $$b{cnt} <=> $$a{cnt} } values %{ $cases{$lower} };
+#for my $form ( @forms ) { print " $$form{text}($$form{cnt}) " }
+#print "\n";
+		$cases{$lower}{preferred} = $forms[0]{text};
+	}
+
+	# replace words with their most frequent capitalization
+	my %results;
+	for my $name ( @$names ) {
+		my $text = "";
+		for my $word ( split /(\W+)/, $name ) {
+			my $lower = lc($word);
+			if ( exists $cases{$lower} ) {
+				$text .= $cases{$lower}{preferred};
+			}
+			else {
+				$text .= $word;
+			}
+		}
+		$text =~ s/\ba\.{0,1} *k\.{0,1} *a\.{0,1}\b/a.k.a./gi;
+		
+#print "$$name{orig} => $text" } 
+
+		$results{$name} = $text;
+	}
+	
+	return \%results;
+}
+
+sub rejected_name {
+	my ( $name ) = @_ ;
+
+	# discard names with forbidden content
+	if ( $name =~ /\b($unknowns)\b/i ) {
+		return 1;
+	} elsif ( $name =~ /insert sequence/i || $name =~ /\Wclone\W/i
+			|| $name =~ /(crystal|solution) structure/i ) {
+		return 2;
+	} elsif ( $name =~ /whole genome/i ) {
+		return 3;
+	} elsif ( $name =~ /\bcont[io]*g\b/i ) {
+		return 4;
+	} elsif ( $name =~ /genom(eic)* sequenc(eing)*/i ) {
+		return 5;
+	} elsif ( $name =~ /Predicted (gene|orf|cds)/i ) {
+		return 6;
+	} elsif ( $name =~ /ps[eu]+dogene/i ) {
+		return 6.5;
+	} elsif ( $name =~ /\bWGS project\b/i ) {
+		return 7;
+	} elsif ( $name =~ /shotgun/i && $name =~ /assembly/i ) {
+		return 8;
+	} elsif ( $name =~ /related cluster/i ) {
+		return 9;
+	} elsif ( $name =~ /(conserved|hypothetical)/i ) {
+		return 10;
+	} elsif ( $name =~ /\bfrom +patent\b/ ) {
+		return 11;
+	} elsif ( $name =~ /\Wgenomics*\W/i ) { return 12 }
+	elsif ( $name =~ /\bESTs*\b/i ) { return 13 }
+	elsif ( $name =~ /^locus\b/i ) { return 14 }
+	elsif ( $name =~ /crystal.*structure/i ) { return 15 }
+	elsif ( $name =~ /blast hit/i ) { return 16 }
+	elsif ( index( $name, "|" ) >= 0 ) { return 17 }
+	elsif ( $name =~ /\b(WGS|shotgun|(complete|partial|draft) *(sequence|genome)s*|contig[[^ ]*|crystals*|ESTs*|cDNA)\b/i ) {
+		return 18;
+	}
+	elsif ( $name =~ /\bintegron[- ]*(protein|gene)[- ]*cassette\b/i ) {
+		return 19;
+	}
+
+	# do not reject known short domains/repeats/families
+	if ( $name =~ /\b([A-Z]{2,}|[A-Z]{1,}-{0,1}[0-9A-Z]{1,2}|CAP160|La|Ig|Fz|Sm)\b/ &&
+			$name =~/(domain|repeat|family|-like\b|-related\b)/i && $name !~ /\bLRR\b/i ) {
+	 	return 0;
+	}
+	elsif ( $name =~ /\b([1-9]Fe-[1-9]S|Fe-S)\b/ &&
+			$name =~/binding/i ) {
+	 	return 0;
+	}
+	elsif ( $name =~ /\b(P450|4F5|14-3-3)\b/ &&
+			$name =~ /(family|-like\b|-related\b)/i ) {
+		return 0;
+	}
+
+	# discard low/no-content names, very short acronyms, and accessions	
+	my $test = $name;
+	$test =~ s/[,;:'"\[\](){}\/\\|?!@#\$\%^&*=+]//g;
+	$test =~ s/^(orf|cdna|gene|gp)//i;
+	while ( $test =~ /\b($unknowns|$isoforms|$groups|$greek|$roman|$kingdoms|$strength|$subunits|$aminoacids|$simpleprotypes)\b/i ) {
+		 $test =~ s/\b($unknowns|$isoforms|$groups|$greek|$roman|$kingdoms|$strength|$subunits|$aminoacids|$simpleprotypes)\b//gi;
+#print "while4: $test\n";
+	}
+	while ( $test =~ /([a-z]*family|\blike\b|\bLRR\b|related +to|related|putative|cataly[a-z]*|rich|domain|region|repeat|motif|associat[a-z]*|with|binding)/i ) {
+		$test =~ s/([a-z]*family|\blike\b|\bLRR\b|related +to|related|putative|cataly[a-z]*|rich|domain|region|repeat|motif|associat[a-z]*|with|binding)//i;
+#print "while5: $test\n";
+	}
+	$test =~ s/^ +//;
+	$test =~ s/ +$//;
+	$test =~ s/  +/ /g;
+
+#print "reject? $test ($name)\n";
+	if ( $test !~ /\w/ ) {
+		return 20;	# no content
+	}
+	elsif ( $test !~ /\w{2,}/ || ( $test !~ / / && $test !~ /\w{3,}/ ) ) {
+		return 21; # low content/short acronym
+	}
+	elsif ( $test !~ / / ) {
+		if ( length( $test ) < 10 && $test =~ /[0-9]{3,}$/ ) { return 22.0 } 
+		if ( $test =~ /[0-9]{4,}/ ) { return 22.1 }
+		if ( $test =~ /[0-9]\.[0-9]/ ) { return 22.2 }
+		if ( $test !~ /[a-z]{3}/i ) { return 22.3 }
+	}
+	
+	return 0;
+}
+
+
+sub normalize_name {
+	my ( $name, $normalization_method ) = @_;
+	if ( ! defined $normalization_method ) { $normalization_method = 0 }
+	my $norm = $name;
+#print "\nname: $name\n";
+
+	# case-sensitive normalizations
+	# remove conjuctions/articles/prepositions/is
+	# and/or/but/a/the/to/from/in/of/by/for/is/has/had/have/having
+	$norm =~ s/\b(or|a|to|in|of|by|is)\b//g;
+	$norm =~ s/\b(and|the|from|for|has|had|have|having)\b//gi;
+
+	# kda
+	while ( $norm =~ /\b([0-9.]+)[- ]*(kda|kd)\b/ ) {
+		$norm =~ s/\b([0-9.]+)[- ]*(kda|kd)\b/$1kD/;
+#print "  kda1: $norm\n";
+#print "while19: $norm\n";
+	}
+	while ( $norm =~ /\b([0-9.]+)[- ]+(kda|kd|k)\b/ ) {
+		$norm =~ s/\b([0-9.]+)[- ]+(kda|kd|k)\b/$1kD/;
+#print "  kda2: $norm\n";
+#print "while20: $norm\n";
+	}
+
+	# family identifier
+	$norm =~ s/#/ /gi;		# reserve '#' for hiliting family IDs
+#if ( $norm =~ /family/i ) { print "family number0: $norm\n" }
+	if ( $norm =~ /family *([^,;: ]+) +($protypes|$subunits|domain|repeat|motif|like|related|[,;:])(.*)$/i ) {
+		my $famnum = $1;
+#print "family number1: $famnum\n";
+		if ( $famnum =~ /[0-9]/ && $famnum !~ /[a-z]{2,}/ && $famnum !~ /kD/ && length( $famnum ) <= 8 ) {
+			$famnum =~ s/[^a-z0-9]/#/g;
+			while ( $famnum =~ /([a-z])([0-9])/i ) {
+				$famnum =~ s/([a-z])([0-9])/$1#$2/i;
+#print "while6: $famnum\n";
+			}
+			while ( $famnum =~ /([0-9])([a-z])/i ) {
+				$famnum =~ s/([0-9])([a-z])/$1#$2/i;
+#print "while7: $famnum\n";
+			}
+			$famnum =~ s/##+/#/g;
+			$famnum =~ s/^#//;
+			$famnum =~ s/#$//;
+			$famnum = "#" . $famnum;
+#print "final: $famnum\n";
+			$norm =~ s/family *([^,;: ]+) +($protypes|$subunits|domain|repeat|motif|like|related|[,;:])(.*)$/family $famnum $2$3/i;
+#print "family number2: $norm\n";
+		}
+	}
+	
+	# 14-3-3
+	$norm =~ s/\b14-([1-9])-([1-9])\b/#14#$1#$2/g;
+
+	# from here on everything is lowercase
+	# unless we are hiliting a special word
+	$norm = lc( $norm );
+
+	# strip extraneous use of protein
+	$norm =~ s/\bpoly[- ]*peptides*\b/protein/gi; 
+	$norm = strip_protein( $norm );
+	$norm =~ s/protein\b/ptn/gi;
+	$norm =~ s/  +/ /g;
+	$norm =~ s/^ +//;
+	$norm =~ s/ +$//;
+#print "  strip: $norm\n";
+
+	# pol/transposable elements
+	$norm =~ s/\bpol([0-9]*)\b/reverse transcriptase POL$1/i;
+	if ( $norm =~ /\b(copia|ty3[.\/ ]*gypsy|pao[.\. ]*bel|ltr)\b/ && ( $norm !~ /retro/ || $norm !~ /transponson/ ) ) {
+		$norm =~ s/\b(copia|ty3[.\/ ]*gypsy|pao[.\. ]*bel|ltr)\b/$1 retrotransposon/;
+	}
+	
+	$norm =~ s/\bretro[- ]*tra*ns*pos[a-z]*[- ]*elem[a-z]*\b/rtrotrnposn/gi;
+	$norm =~ s/\bretro[- ]*elem[a-z]*b/rtrotrnposn/gi;
+	$norm =~ s/\bretro[- ]*tra*ns*pos[a-z]*\b/rtrotrnposn/gi;
+	$norm =~ s/\btra*ns*pos[a-z]*[- ]*elem[a-z]*\b/trnposn/gi;
+	$norm =~ s/\btra*ns*pos[a-z]*\b/trnposn/gi;
+	
+	# h+ => proton
+	if ( $norm =~ /h\(*\+\)*/i ) {
+		$norm =~ s/^h\(*\+\)*(\W)/proton$1/;
+		$norm =~ s/(\W)h\(*\+\)*(\W)/$1proton$2/g;
+#print "  proton: $norm\n";
+	}
+	
+	# 5'-3', 3'-5'
+	$norm =~ s/5'/5/g;
+	$norm =~ s/3'/3/g;
+	$norm =~ s/\b5 *-+ *3\b/ 5t3 /g;
+	$norm =~ s/\b3 *-+ *5\b/ 3t5 /g;
+#print "  5-3/3-5: $norm\n";
+	
+	# NAD(P)
+	$norm =~ s/\bnad\(p\)/nadp/gi;
+	$norm =~ s/\bnad\[p\]/nadp/gi;
+#print "  NAD(P): $norm\n";
+
+	# "non-" removes word
+	while ( $norm =~ /\bnon-[a-z]+\b/i ) {
+		$norm =~ s/\bnon-[a-z]+\b//i;
+#print "while8: $norm\n";
+#print "non-: $norm\n";
+	}
+	
+	# special handling of hyphens
+	$norm =~ s/\b(co|anti|sub|super|pro) *-+[- ]*/$1/gi;
+	$norm =~ s/[ -]+(associated|depend|induc|respon|activ|inhib|regu|promo|specific[ity]*)/ $1/g;		# X-binding => X binding
+#print "  non/co-: $norm\n";
+	
+	# try to preserve features like (L)/3,4/1-/-3- in chemical names
+	$norm =~ s/-\((.)\)-/-$1-/g;
+	$norm =~ s/-\[(.)\]-/-$1-/g;
+	while ( $norm =~ /([0-9]),([1-9])/ ) {
+		$norm =~ s/([0-9]),([1-9])/$1-$2/;
+#print "while9: $norm\n";
+#print "  2,3: $norm\n";
+	}
+	while ( $norm =~ /([a-z]{4,})-([a-z]{4,})/ ) {
+		$norm =~ s/([a-z]{4,})-([a-z]{4,})/$1 $2/;
+#print "while10: $norm\n";
+#print "  xxxx-yyyy: $norm\n";
+	}
+
+	# standardize punctuation to "-" (within words) and blank (between words)
+	# (preserve special character #)
+	$norm =~ s/#/sHaRpPoUnD/g;
+	while  ($norm =~ / +([|\/\\]) +/ ) {
+		$norm =~ s/ +([|\/\\]) +/ /;
+#print "while11: $norm\n";
+#print "  slashes: $norm\n";
+	}
+	{
+		my @words = split / +/, $norm;
+		my $tmp = " ";
+		for my $word ( @words ) {
+			$word =~ s/\W+$//;
+			$word =~ s/^\W+//;
+			$word =~ s/\W+/-/g;
+			$tmp .= $word . " ";
+		}
+		$norm = $tmp;
+#print "  punct: $norm\n";
+	}
+	$norm =~ s/sHaRpPoUnD/#/g;
+	
+	# amino acids
+	while ( $norm =~ /\b($aminoacids)\b/i ) {
+		 $norm =~ s/\b($aminoacids)\b/$1ptn/i;
+#print "while12: $norm\n";
+#print "  aminoacid1: $norm\n";
+	}
+	$norm =~ s/ineptn\b/ptn/gi;
+	$norm =~ s/ *acidptn\b/ptn/gi;
+#print "  aminoacid2: $norm\n";
+
+	# C/N-termal/terminus
+	$norm =~ s/\b(c|carboxy|carboxyl|cooh)[- ]*term[inalus]*/cbxtm/gi;
+	$norm =~ s/\b(n|amino|amine|nh2)[- ]*term[inalus]*/amntm/gi;
+	$norm =~ s/\b(cbxtm|amntm)[- ]*domain/$1/gi;
+#print "  terminus: $norm\n";
+	
+	# synthetase/ligase
+	$norm =~ s/\bsynthetase\b/ligase/gi;
+#print "  ligase: $norm\n";
+
+	# proteinase/protease/peptidase
+	$norm =~ s/\bsynthetase\b/ligase/gi;
+	
+	# biosynthesis=synthesis=synthase
+	$norm =~ s/\b(proteinase|protease|peptidase)\b/prtnase/gi;
+#print "  synthase: $norm\n";
+
+	# expressed
+	$norm =~ s/\b($strength) *expressed *protein\b//gi;
+	$norm =~ s/\bexpressed *protein\b//gi;
+	$norm =~ s/\b($strength) *expressed\b//gi;
+	$norm =~ s/\bexpressed\b//gi;
+	
+	# induced/response/triggered/stimulated/activated
+	$norm =~ s/\b(react|induc|respon[sd]|trigger+|stimulat*|activat*|elicit)(s|es|ed|ing|ive|ing|ion|[ai]ble)\b/response/gi;
+
+	# standardize element symbols
+	my %elements = (
+		'Ag' => 'Silver',
+		'Al' => 'Aluminum',
+		'As' => 'Arsenic',
+		'Au' => 'Gold',
+		'Br' => 'Bromine',
+		'Ca' => 'Calcium',
+		'Cd' => 'Cadmium',
+		'Cl' => 'Chlorine',
+		'Co' => 'Cobalt',
+		'Cr' => 'Chromium',
+		'Cu' => 'Copper',
+		'Fe' => 'Iron',
+		'Hg' => 'Mercury',
+		'Li' => 'Lithium',
+		'Mg' => 'Magnesium',
+		'Mn' => 'Manganese',
+		'Mo' => 'Molybdenum',
+		'Na' => 'Sodium',
+		'Ni' => 'Nickel',
+		'Pb' => 'Lead',
+		'Sb' => 'Antimony',
+		'Se' => 'Selenium',
+		'Si' => 'Silicon',
+		'Sn' => 'Tin',
+		'Ti' => 'Titanium',
+		'Tl' => 'Thallium',
+		'Tm' => 'Thulium',
+		'Zn' => 'Zinc',
+		'Zr' => 'Zirconium'
+	);
+	for my $sym ( keys %elements ) {
+		while ( $norm =~ /\b$sym\b/i ) {
+			my $new = lc( $elements{$sym} );
+			$norm =~ s/\b$sym\b/$new/i;
+#print "while13: $norm\n";
+#print "  $sym: $norm\n";
+		}
+	}
+
+	for my $ignore
+		( "express[edsiong]*", "containing", "putative",
+			"proteins*", "genes*", "ests*", "cdnas*", "orfs*",
+			"sub-*types*", "types*",
+			"sub-*classes*", "super-*classe*s*", "classe*s*",
+			"sub-*groups*",	"super-*groups*", "groups*",
+			"variants*", "isoforms*", "members*" ) {
+		$norm =~ s/\b$ignore\b//g;
+	}
+	$norm =~ s/ -/ /g;
+	$norm =~ s/- / /g;
+	$norm =~ s/--+/-/g;
+	$norm =~ s/  +/ /g;
+#print "  ignore: $norm\n";
+	
+	# standardized words that essentially mean "like"
+	for my $homolog (
+			"like", "related", "similar[a-z]*", "homolog[a-z]*", "ortholog[a-z]*", "paralog[a-z]*" ) {
+		$norm =~ s/\b$homolog\b/logFAM/gi;
+	}
+	
+	# domains/families
+	$norm =~ s/\bLRR\b/leucine rich repeat/gi;
+	$norm =~ s/($simpledomains)/ domFAM /gi;
+	$norm =~ s/sub-*family/ prtFAM /gi;
+	$norm =~ s/super-*family/ prtFAM /gi;
+	$norm =~ s/family/ prtFAM /gi;
+	$norm =~ s/  +/ /g;
+	
+	# f-box/k-box
+	$norm =~ s/\bf[- ]+box/Fbox/gi;
+	$norm =~ s/\bk[- ]+box/Kbox/gi;
+	while ( $norm =~ /\b([a-z]) *- *box\b/i ) {
+		my $box = uc( $1 ) . "box";
+		$norm =~ s/\b([a-z]) *- *box\b/$box/gi;
+	}
+	# DNA/RNA/ATP/CAMP/AMP/FAD/SAM directed/dependent
+	while ( $norm =~ /\b(dna|rna|atp|camp|amp|fad|sam)[- ]*(depend|direct|instruct)[edionsng]+\b/ ) {
+		my $new = uc ( $1 );
+		$new =~ s/\W//g;
+		$norm =~ s /\b(dna|rna|atp|camp|amp|fad|sam)\W*(depend|direct|instruct)[edionsng]+\b/$new/;
+#print "  XXX-depend: $norm\n";
+#print "while15: $norm\n";
+	}
+	
+	# DNA/RNA implies nuclear acid
+	$norm =~ s/\b(d|r)na\b/nucna$1/g;
+	$norm =~ s/\bnucl[earic]{3,}[- ]*acid\b/nucna/g;
+#print "  nuc: $norm\n";
+	
+	# binding
+	$norm =~ s/[- ]*binding/bind/g;
+#print "  bind: $norm\n";
+
+	# co-enzymes
+	$norm =~ s/co-+enzymes*/coenzyme/gi;
+	if ( $norm =~ /\bcoenzyme *([a-z])\b/ ) {
+		my $co = uc( $1 );
+		$norm =~ s/\bcoenzyme *([a-z])\b/co$co/g;
+	}
+	$norm =~ s/\bcoenzyme *q-*10\b/coQ10/gi;
+ 
+	# MAP/MAPK
+	if ( $name =~ /\b(MAPK[1-3])/ ) {
+		my $old = $1;
+		my $new = "map";
+		my $nk = substr( $old, 4 );
+		for my $k ( 1..$nk ) {
+			$new .= " kinase";
+		}
+		$norm =~ s/\b$old/$new/i;
+	}
+	elsif ( $name =~ /\b(MAP[1-3]K)/ ) {
+		my $old = $1;
+		my $new = "map";
+		my $nk = substr( $old, 3, 1 );
+		for my $k ( 1..$nk ) {
+			$new .= " kinase";
+		}
+		$norm =~ s/\b$old/$new/i;
+	}
+	elsif ( $name =~ /\b(MAPK+)/ ) {
+		my $old = $1;
+		my $new = substr( $old, 3 );
+		$new =~ s/K/ kinase/g;
+		$new = "map$new";
+		$norm =~ s/\b$old/$new/i;
+	}
+	$norm =~ s/\b(mitogen[- ]*activated[- ]*protein)\b/mapmito/g;
+
+	# kinase..kinase
+	if ( $norm =~ /\bkinase[- ]*kinase[- ]*kinase[- ]*kinase\b/ ) {
+		$norm =~ s/\bkinase[- ]*kinase[- ]*kinase[- ]*kinase\b/KI4 kinase/;
+	}
+	elsif ( $norm =~ /\bkinase[- ]*kinase[- ]*kinase\b/ ) {
+		$norm =~ s/\bkinase[- ]*kinase[- ]*kinase\b/KI3 kinase/;
+	}
+	elsif ( $norm =~ /\bkinase[- ]*kinase\b/ ) {
+		$norm =~ s/\bkinase[- ]*kinase\b/KI2 kinase/;
+	}
+	
+#print "  map: $norm\n";
+	
+	# standardized transporters
+	# co-transporter, symporter, antiporter, exchanger, carrier
+	$norm =~ s/\bco-*transport/coport/g;
+	$norm =~ s/\bsymport/symcoport/g;
+	$norm =~ s/\bcounter[- ]+transport/antiport/g;
+	$norm =~ s/\bexchange/antiport/g;
+	$norm =~ s/\bcarry([ing]*)\b/transport$1/g;
+	$norm =~ s/\bcarrie([rd])\b/transporte$1/g;
+	$norm =~ s/\bcarries\b/transports/g;
+#print "  port: $norm\n";
+
+	# standardize sugars
+	$norm =~ s/\b([a-z]{3,})ose\b/$1sugar/gi;
+	$norm =~ s/\b(monos|di)s*ac+har+ides*/$1sugar/gi;
+#print "  sugar: $norm\n";
+
+	# convert Roman numerals to numbers
+	my $arabic = 0;
+	for my $roman ( "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix" ) {
+		$arabic++;
+		while ( $norm =~ /\b($roman([a-z]{0,1}))\b/ ) {
+			my $old = $1;
+			my $suffix = $2;
+			my $new = "$arabic$suffix";
+			$norm =~ s/\b$old\b/$new/g;
+#print "  $old: $norm\n";
+#print "while16: $norm\n";
+		}
+	}
+	
+#print "  norm6: $norm\n";
+
+	# break at letter-number boundaries
+#	while ( $norm =~ /([a-z]){2,}([0-9])/i ) {
+#		$norm =~ s/([a-z]){2,}([0-9])/$1 $2/i
+#	}
+#	while ( $norm =~ /([0-9])([a-z]{2,})/i ) {
+#		$norm =~ s/([0-9])([a-z]{2,})/$1 $2/i
+#	}
+	while ( $norm =~ /([a-z])([0-9])/i ) {
+		$norm =~ s/([a-z])([0-9])/$1 $2/i;
+#print "while17: $norm\n";
+	}
+	while ( $norm =~ /([0-9])([a-z])/i ) {
+		$norm =~ s/([0-9])([a-z])/$1 $2/i;
+#print "while18: $norm\n";
+	}
+
+	# remove low meaning words
+	$norm =~ s/\b($groups)\b//gi;
+	$norm =~ s/\b($subunits)\b//gi;
+	$norm =~ s/\b(isoforms)\b//gi;
+	$norm =~ s/\b($strength)\b//gi;
+
+	# mark beginning full words
+	{
+		my $new = "";
+		for my $word ( split / +/, $norm ) {
+			if ( length( $word ) >= 4 ) { $new .= ">$word " }
+			else { $new .= "$word " }
+		}
+		$new =~ s/ $//;
+		$norm = $new;
+#print "  wordmarks: $norm\n";
+	}
+
+	# special cases
+	# no compound words or begin marks
+	if ( $normalization_method > 0 ) {
+		$norm =~ s/>//gi;
+#print "  special1: $norm\n";
+		$norm =~ s/\b([0-9a-z]-)/$1 /g;
+#print "  special2: $norm\n";
+		$norm =~ s/(-[0-9a-z])\b/ $1/g;		
+#print "  special3: $norm\n";
+		$norm =~ s/([^ ])-([^ ])/$1 $2/g;
+#print "  special4: $norm\n";
+		$norm =~ s/^ +//;
+#print "  special5: $norm\n";
+		$norm =~ s/ +$//;
+#print "  special6: $norm\n";
+
+		# exclude family (domain/related/family/homolog, etc)
+		if ( $normalization_method > 1 ) {
+			$norm =~ s/(logFAM|domFAM|prtFAM)//g;
+#print "while21: $norm\n";
+#print "  special7: $norm\n";
+		}
+	}
+
+	# remove leading/trailing/consecutive blanks
+	$norm =~ s/^ +//;
+	$norm =~ s/ +$//;
+	$norm =~ s/  +/ /g;
+
+#print "  normout: $norm\n";
+	return $norm;
+}
+
+
+sub get_keywords {
+	my ( $in, $normalization_method ) = @_;
+#print "in: $in\n";
+
+	my $ksz = 3;	# algorithm needs to be completely rethiught is key size is changed
+	my $wsz = 4.0;
+
+	my %keywords;
+
+	# standardize name
+	my $norm = normalize_name( $in, $normalization_method );
+	if ( $norm !~ /\w/ ) { return undef }
+#print "  $norm\n";
+
+	# split name into words
+	my @words = split / +/, $norm;
+
+	# extract keywords from words
+	my $pos = 0;
+	for my $w ( 0..@words-1 ) {
+		$pos = $w;
+		my $word = $words[$w];
+		# do NOT break numbers into fragments
+		if ( $word =~ /kD$/ || $word =~ /^[-+]{0,1}[0-9.]+$/ ) {
+			$word =~ s/^+//;
+			my $wordwgt = word_weight( $word );
+			$keywords{position}{$pos} = $word;
+			$keywords{keycnt}{$word}++;
+			$keywords{keywgt}{$word} += $wordwgt;
+			$keywords{namewgt} += $wordwgt;
+#print "      $pos $wword  c: $keywords{$kw}{cnt}  w: $keywords{$kw}{cnt}  totw: $keywords{namewgt}\n";
+		}
+		elsif ( $word =~ /^#/ ) {
+			$word =~ s/^#//;
+			my @tmp = split /#/, $word;
+			my $wordwgt = 1;
+			for my $wrd ( @tmp ) {
+				$wrd = "#$wrd";
+				$keywords{position}{$pos} = $wrd;
+				$keywords{keycnt}{$wrd}++;
+				$keywords{keywgt}{$wrd} += $wordwgt;
+				$keywords{namewgt} += $wordwgt;
+				$wordwgt = $wordwgt / 2.0;
+				$pos += 0.1;
+			}
+		}
+
+		# weight non-numeric words by length
+		# and break into fragments
+		else {
+
+			# full word requires 4 characters
+			my $wordwgt = word_weight( $word );
+			
+			# flag families
+			if ( $word =~ /\b(...)fam\b/ ) { $keywords{family}{$1}++ }		
+
+#print "    $w. $word  wln: $wln  ksz: $ksz  fragcnt: $fragcnt  wrdwgt: $wordwgt\n";
+			# break word into fragments
+			my $fragcnt = max( 1, length( $word ) - $ksz + 1 );
+			my $wgt = $wordwgt / $fragcnt;
+			for my $c ( 0..$fragcnt-1 ) {
+				my $kw = substr( $word, $c, $ksz );
+	
+	#			if ( ! exists $keywords{keycnt}{$kw} ) { $keywords{position}{$pos} = $kw }
+				$keywords{position}{$pos} = $kw;
+	
+				$keywords{keycnt}{$kw}++;
+				$keywords{keywgt}{$kw} += $wgt;
+				$keywords{namewgt} += $wgt;
+	#print "      $pos $kw  c: $keywords{$kw}{cnt}  w: $keywords{$kw}{cnt}  totw: $keywords{namewgt}\n";
+				$pos += 0.01;
+			}
+		}
+	}
+	for my $kw ( keys %{ $keywords{keywgt} } ) {
+		$keywords{keywgt}{$kw} = $keywords{keywgt}{$kw} / $keywords{keycnt}{$kw};
+	}
+	delete $keywords{keycnt};
+
+	return \%keywords;
+}
+
+sub word_weight {
+	my ( $word ) = @_;
+
+	my $minorwords = "...FAM|domain|repeat|motif"
+		. "|analog[a-z]*|alleles*|acids*|dual|rich|cataly[stic]*|enzymes*|regions*|complex[es]*|[1-9][0-9.]*kD"
+		. "|diseases*"
+		. "|direct[edsiong]+|instruct[edsiong]|independent|dependent|response"
+		. "|specific[ity]*|insensitive|sensitive"
+		. "|associat[iongsed]+|complement[ingsed]*|interact[iongsed]+"
+		. "|inactive|active"
+		. "|$isoforms|$strength|$subunits|$groups";
+	my $wordwgt;
+	$word =~ s/[><]//g;
+
+	if ( $word =~ /^[0-9.]+$/ && $word !~ /\..*\./ ) {
+		$wordwgt = 0.25;
+	}
+	elsif ( $word =~ /kD$/ ) {
+		$wordwgt = 0.33;
+	}
+	elsif ( $word =~ /^($domains)$/ ) {
+		$wordwgt = 0.75;
+	}
+	elsif ( $word =~ /^(logFAM|domFAM|prtFAM)$/ ) {
+		$wordwgt = 0.15;
+	}
+	else {
+
+		# full word requires 4 characters
+		my $wln = length( $word );
+		$wordwgt = minval( 1, $wln / 4.0 );
+		if ( $wordwgt >= 3.5 ) {
+			$wordwgt = 1.5;
+		}
+		elsif ( $wordwgt > 2.5 ) {
+			$wordwgt = 1.25;
+		}
+		elsif ( $wordwgt > 1 ) {
+			$wordwgt = 1.0;
+		}
+	
+		# reduce influence artificial words/accessions
+		if ( $word =~ /[|_]/ ) { $wordwgt = 0.20 }
+	
+		# reduce influence of low-information words 
+		elsif ( $word =~ /^($minorwords)$/ ) { $wordwgt = 0.25 }
+	
+		# reduce influence of amino acids
+		elsif ( $word =~ /^($aminoacids)$/ ) { $wordwgt = 0.40 }
+	
+		# treat "non" as a full word 
+		elsif ( $word =~ /^(non)$/ ) { $wordwgt = 1.0 }
+	}
+	
+	return $wordwgt;
+}
+
+sub base_protein_name {
+	my ( $name ) = @_;
+	
+	my $last = $name;
+	my $next = parent_protein_name( $last );
+	while ( $last ne $next ) {
+#print "while22: $last|$next\n";
+		$last = $next;
+		$next = parent_protein_name( $last );
+	}
+	
+	return $last;
+}
+
+sub parent_protein_name {
+	my ( $name ) = @_;
+	my $dbg = 0;
+	#if ( $name =~ /7-like/i ) { $dbg = 1 }
+	my $separators = ",;: \\\|";
+	my $proteins = "$protypes|$enzymes";
+	
+	my $text = $name;
+	my $parent;
+	my $is_putative = 0;
+	if ( $text =~ /, putative$/ ) {
+		$is_putative = 1;
+		$text =~ s/, putative$//;
+	}
+	if ( $dbg ) { print "parent0: in $name  putative $is_putative  related: " }
+	my $is_related;
+	if ( $text =~ /\b(related|like)[- ]+($proteins)$/ ) {
+		$is_related = $1;
+		$text =~ s/\b(related|like)[- ]+($proteins)$/$2/;
+		if ( $dbg ) { print "$is_related  modified: $text" }
+	}
+	if ( $dbg ) { print "\n" }
+
+	if ( $text =~ /^(.+)\b($proteins) *([0-9a-z]{1,3})$/i ) {
+		$parent = $1;
+		my $protein = $2;
+		my $detail = $3;
+		if ( ! is_protein_detail( $detail ) ) {
+			$parent = $name;
+		}
+		else {
+			if ( defined $is_related ) {
+				$parent .= "$is_related $protein";
+			}
+			else {
+				$parent .= "$protein";
+			}
+			if ( $is_putative ) {
+				$parent .= ", putative";
+			}
+			if ( rejected_name( $parent ) ) { $parent = $name }
+		}
+		if ( $dbg ) { print "parent1: $name => $parent\n" }
+	}
+	elsif ( $text =~ /^(.+[, ]+(family|subfamily|superfamily) +[a-z0-9]+)-[0-9a-z]+ +($proteins)/i ) {
+		$parent = "$1 $3";
+		if ( $is_putative ) {
+			$parent .= ", putative";
+		}
+		if ( rejected_name( $parent ) ) { $parent = $name }
+		if ( $dbg ) { print "parent2: $name => $parent\n" }
+	}
+	elsif ( $text =~ /^(.+[, ]+(family|subfamily|superfamily) +[a-z]{0,3}[0-9]+)[a-z] +($proteins)$/i ) {
+		$parent = "$1 $3";
+		if ( $is_putative ) {
+			$parent .= ", putative";
+		}		
+		if ( rejected_name( $parent ) ) { $parent = $name }
+		if ( $dbg ) { print "parent3: $name => $parent\n" }
+	}
+	elsif ( $text =~ /^(.+)[- ]+($kingdoms) +($proteins)$/i ) {
+		$parent = "$1";
+		if ( defined $is_related ) {
+			$parent .= "$is_related $3";
+		}
+		else {
+			$parent .= " $3";
+		}
+		if ( $is_putative ) {
+			$parent .= ", putative";
+		}		
+
+		if ( rejected_name( $parent ) ) { $parent = $name }
+		if ( $dbg ) { print "parent4: $name => $parent\n" }
+	}
+	elsif ( $text =~ /^(.*\w)[- ]+(($kingdoms)[- ]+(like|related))[- ]+($proteins)$/i ) {
+		$parent = $1;
+		my $protype = $5;
+		if ( $parent !~ /\b($protypes)$/ ) { $parent .= " $protype" }
+		if ( $is_putative ) {
+			$parent .= ", putative";
+		}		
+
+		if ( rejected_name( $parent ) ) { $parent = $name }
+		if ( $dbg ) { print "parent5: $name => $parent\n" }
+	}
+	elsif ( $text =~ /[- ]+[0-9a-z]{1,2}[- ]+($proteins)$/i ) {
+		my $protype = $1;
+		$parent = $text;
+		$parent =~ s/[- ]+[0-9a-z]{1,2}[- ]+($proteins)$//i;
+		if ( defined $is_related ) {
+			$parent .= "-$is_related $protype";
+		}
+		else {
+			$parent .= " $protype";
+		}
+		if ( $is_putative ) {
+			$parent .= ", putative";
+		}		
+
+		if ( rejected_name( $parent ) ) { $parent = $name }
+		if ( $dbg ) { print "parent6: $name => $parent\n" }
+	}
+	elsif ( $text =~ /^(.+)[, ]+($kingdoms)$/i ) {
+		$parent = $1;
+		if ( $is_putative ) {
+			$parent .= ", putative";
+		}		
+
+		if ( rejected_name( $parent ) ) { $parent = $name }
+		if ( $dbg ) { print "parent8: $name => $parent\n" }
+	}
+	elsif ( $text =~ /^(.+)[$separators]+\([^()]*\)$/ ) {
+		$parent = $1;
+		my $detail = $2;
+		if ( length( $detail ) > 6 || $detail =~ / / ) {
+			$parent = $name;
+		}
+		else {
+			$parent =~ s/[$separators]+$//;
+			if ( $parent =~ /[a-z]/i ) {
+				if ( defined $is_related ) {
+					$parent .= "$is_related protein";
+				}
+				if ( $is_putative ) { $parent .= ", putative" } 
+				if ( rejected_name( $parent ) ) { $parent = $name }
+			}
+			else {
+				$parent = $name;			
+			}
+		}
+		if ( $dbg ) { print "parent9: $name => $parent\n" }
+	}
+	elsif ( $text =~ /^(.+)[$separators]([-_a-z0-9]+)$/i ) {
+		$parent = $1;
+		my $detail = $2;
+		$parent =~ s/[$separators]+$//;
+		if ( $parent =~ /($groups|$subunits)$/i ) {
+			$parent = $name;
+		}
+		else {
+			if ( ! is_protein_detail( $detail ) && ! is_protein_name( $detail ) ) {
+				$parent = $name;
+			}
+			else {
+				if ( $detail =~ /^kda$/i ) {
+					$parent =~ s/[$separators]+[1-9][.0-9]*//;
+				}
+				if ( defined $is_related ) {
+					$parent .= "$is_related protein";
+				}
+				if ( $is_putative ) { $parent .= ", putative" } 
+				if ( rejected_name( $parent ) ) { $parent = $name }
+			}
+		}
+		if ( $dbg ) { print "parent10: $name => $parent\n" }
+	}
+	
+	if ( defined $parent ) { return $parent }
+	if ( $dbg ) { print "parent11: $name => $name\n" }
+	return $name;	
+}
+
+# return 1 if the text is a minor protein detail
+# return 0 if the text is significantly descriptive
+sub is_protein_detail {
+	my ( $text ) = @_;
+	my $dbg = 0;
+
+	if ( $dbg ) { print "detail0: $text\n" }	
+	if ( $text =~ /\// ) {
+		my @tmp = split /\/+/, $text; 
+		for my $txt ( @tmp ) {
+			if ( $txt =~ /\w/ ) {
+				if ( ! is_protein_detail( $txt ) ) { return 0 }
+			}
+		}
+		return 1;
+	}
+	my $tmp = $text;
+	
+	# remove parens/brackets
+	while ( $tmp =~ /^[\(\[\{](.*)[\)\]\}]/ ) {
+		$tmp = $1;
+#print "while23: $tmp\n";
+		if ( $dbg ) { print "detail1: $tmp\n" }	
+	}
+
+	# ignore roman numerals and greek letters
+	while ( $tmp =~ /\b($greek|$roman|prime)\b/i ) {
+		$tmp =~ s/\b($greek|$roman|prime)\b//gi;
+#print "while24: $tmp\n";
+		if ( $dbg ) { print "detail2: $tmp\n" }	
+	}
+	
+	# nothing left
+	if ( $tmp !~ /[a-z0-9A-Z]/ ) {
+		if ( $dbg ) { print "detail3: $tmp\n" }	
+		return 1;
+	}
+	
+	# kingdom, eg plant
+	if ( $tmp =~ /^($kingdoms)$/i ) {
+		if ( $dbg ) { print "detail4: $tmp\n" }	
+		return 1;
+	}	
+	# isoform
+	elsif ( $tmp =~ /^($isoforms)$/i ) {
+		if ( $dbg ) { print "detail5: $tmp\n" }	
+		return 1;
+	}
+	
+	# gene symbol, eg BrcA
+	elsif ( $tmp =~ /^[A-Z][a-z]{2}[A-Za-z]$/ ) {
+		if ( $dbg ) { print "detail6: $tmp\n" }	
+		return 1;
+	}
+
+	# protein size, e.g. 28.1 kDa
+	elsif ( $tmp =~ /^[1-9][0-9.]+-*(k|kd|kda)$/ ) {
+		if ( $dbg ) { print "detail7: $tmp\n" }	
+		return 1;
+	}
+
+	# underscore
+	elsif ( $tmp =~ /_/ ) {
+		if ( $dbg ) { print "detail8: $tmp\n" }	
+		return 1;
+	}
+
+	# word or mnemonic
+	elsif ( $tmp =~ /\b[a-z]{2,}/i ) {
+		if ( $dbg ) { print "detail9: $tmp\n" }	
+		return 0;
+	}
+
+	# family number
+	elsif ( $tmp =~ /^[0-9]{3,}/i ) {
+		if ( $dbg ) { print "detail10: $tmp\n" }	
+		return 0;
+	}
+
+	# odd combination of numbers and letters
+	else {
+		if ( $dbg ) { print "detail11: $tmp\n" }	
+		return 1;
+	}
+}
+
+sub is_protein_name {
+	my ( $text ) = @_;
+	
+	
+	my $test = $text;
+	$test =~ s/\W*putative//i;
+	$test =~ s/^\W+//;
+	$test =~ s/\W+$//;
+	
+	# cytochrome P450 protein
+	if ( $test =~ /^cyp[0-9]+[a-z][0-9]+$/i ) {
+#print "is_protein_name 0a: 0, $text\n";
+		return 1;
+	}
+	elsif ( $test =~ /^cyp[0-9]+[a-z]$/i ) {
+#print "is_protein_name 0b: 0, $text\n";
+		return 0;
+	}
+
+	# probably a family
+	if ( $test =~ /\bfam/i ) { return 0 } 
+	if ( $test =~ /^[a-z]{1,3}[0-9]{1,3}[-0-9a-z]{1,2}$/ ) {
+#print "is_protein_name 1: 0, $text\n";
+		return 0;
+	}
+
+	# punctuation (other than underscores/hyphens/periods) not expected in a specific protein name
+	if ( $test =~ /[ ,:;+\/'"(){}\][]/ ) {
+#print "is_protein_name 2: 0, $text\n";
+		return 0;
+	}
+
+	# too general to be a specific protein name, probably a group name
+	if ( length( $test ) < 5 && $test !~ /[0-9]/ && $test !~ /[a-z][A-Z]/ ) {
+#print "is_protein_name 3: 0, $text\n";
+		return 0;
+	}
+
+	# a long stretch of lowercase letters is probably a word, not a specific protein name
+	if ( $test =~ /[a-z]{6,}/ ) {
+#print "is_protein_name 4: 0, $text\n";
+		return 0;		
+	}
+
+	# two stetches of lowercase letters is probably a phrase, not a specific protein name
+	if ( $test =~ /[a-z]{3,}.*[^a-z].*[a-z]{3,}/ ) {
+#print "is_protein_name 5: 0, $text\n";
+		return 0
+	}
+	
+	# long stretch of letters without any numbers is probably a word, not a specific protein name
+	if ( $test =~ /[a-z]{6,}/i && $test !~ /[0-9]/ ) {
+#print "is_protein_name 6: 0, $text\n";
+		return 0;
+	}
+
+	# not a specific protein name if contains a descriptive word
+	if ( $test =~ /($goodends)$/i ) {
+#print "is_protein_name 7: 0, $text\n";
+		return 0;
+	}
+	if ( $test =~ /\b($domains|$groups|$isoforms|$subunits|like|related|[a-z]*family)\b/i ) {
+#print "is_protein_name 8: 0, $text\n";
+		return 0;
+	}
+	if ( $test =~ /^($keeppros)/i ) {
+#print "is_protein_name 9: 0, $text\n";
+		return 0;
+	}
+
+	# passed all the tests, assume it's a specific protein name
+
+#print "is_protein_name 10: 1, $text\n";
+	return 1;
+}
+
+# remove extraneous use of the word "protein"
+sub strip_protein {
+	my ( $common_name ) = @_;
+	
+#print "strip in: $common_name\n";
+	$common_name =~ s/\bmembers*\b/\bprotein/gi;
+	$common_name =~ s/proteins\b/protein/gi;
+	$common_name =~ s/\bprotein *($domains|[a-z]*family)/$1/gi;
+	$common_name =~ s/\b([A-Z])[- ]+protein\b/$1-<PTN>/gi;
+
+	my $new = "";
+	my $keep = 0;
+	for my $word ( reverse split /\b(protein)\b/i, $common_name ) {
+#print "  strip tmp0: $word\n";
+		if ( $word =~ /^protein$/i ) {
+			if ( $keep ) {
+				$new = "protein$new";
+#print "    strip tmp1: $new\n";
+			}
+		}
+		else {
+			$new = "$word$new";
+#print "    strip tmp2: $new\n";
+		}
+		if ( $word =~ /\b($keeppros)\b/i ) {
+			$keep = 1;
+		}
+		elsif ( is_protein_detail( $word ) ) {
+		}
+		else {
+			$keep = 0;
+		}
+	}
+#print "strip tmp: $new\n";
+	$new =~ s/-<PTN>/ protein/g;
+	
+#print "strip out: $new\n";
+	return $new;
+}
+
+sub standardize_name {
+	my ($common_name) = @_;
+	my $dbg = 0;
+	#if ( $common_name =~ /plant/i || $common_name =~ /\bAt[0-9]g/ ) { $dbg = 1 }
+
+	my $orig = $common_name;
+	if ( $dbg ) { print "\nin: $common_name\n" }
+	
+	# quoted name
+	if ( $common_name =~ /^ *' *([^']*)  *' *$/ ) {
+		$common_name = $1;
+		if ( $dbg ) { print "  quoted('): $common_name\n" }
+	}
+	elsif ( $common_name =~ /^ *" *([^"]*)  *" *$/ ) {
+		$common_name = $1;
+		if ( $dbg ) { print "  quoted(\"): $common_name\n" }
+	}
+	
+	# of...origin
+	$common_name =~ s/\bof\b.*\borigin\b//gi;
+	if ( $dbg ) { print "  of..origin: $common_name\n" }
+	
+	# remove domain/repeat copy count, e.g. "(20 copies)"
+	$common_name =~ s/(domains*|repeats*) *[:;\.,\(\[] *\d+ copies *[:;\.,\)\]]/$1/gi;
+	if ( $dbg ) { print "  copies: $common_name\n" }
+
+	# miscellaneous clean-ups retained from old code
+	$common_name =~ s/ +involved with .*//;
+	$common_name =~ s/(,|\(|-) *EC *[0-9]+\..*//i;
+	$common_name =~ s/\((fragment[a-z]*|partials*|predict[a-z]+|truncat[a-z]+)\)/, $1, /gi;
+	$common_name =~ s/\b(genbank|refseq|fgenesh|genescan|genmark|glimmer)\b//gi;
+	$common_name =~ s/^(TPA|FOG): *//i;
+	$common_name =~ s/brain super conserved receptor/SREB family/gi;
+	$common_name =~ s/Transient receptor potential/TRP/gi;
+	$common_name =~ s/ expre*s+e*d prot[ei]+ns*/ /gi;
+	$common_name =~ s/ +expre*s+e*d/ /gi;
+	
+	# balance parenthesis
+	$common_name =~ s/ +\)/\)/g;
+	while ( $common_name =~ /\(([^()]+)\)/ ) { 
+		$common_name =~ s/\(([^()]+)\)/!{!$1!}!/;
+#print "while25: $common_name\n";
+	}
+
+	$common_name =~ s/\)/, /g;
+	if ( $common_name =~ /\([^()]+ *$/ ) {
+		$common_name .= ")"
+	}
+	else {
+		$common_name =~ s/ *\(/, \(/g;
+	}
+	$common_name =~ s/!{!/\(/g;
+	$common_name =~ s/!}!/\)/g;
+	$common_name =~ s/\( +/\(/g;
+	$common_name =~ s/ +\)/\)/g;
+	if ( $dbg ) { print "  () $common_name\n" }
+
+	# balance brackets
+	$common_name =~ s/ +\]/\]/g;
+	while ( $common_name =~ /\[([^\]\]]+)\]/ ) { 
+		$common_name =~ s/\[([^\]\[]+)\]/!{!$1!}!/;
+#print "while26: $common_name\n";
+	}
+
+	$common_name =~ s/\]/, /g;
+	if ( $common_name =~ /\[[^\]\]]+ *$/ ) {
+		$common_name .= "]"
+	}
+	else {
+		$common_name =~ s/ *\[/, \[/g;
+	}
+	$common_name =~ s/!{!/\[/g;
+	$common_name =~ s/!}!/\]/g;
+	$common_name =~ s/\[ +/\[/g;
+	$common_name =~ s/ +\]/\]/g;
+	if ( $dbg ) { print "  [] $common_name\n" }
+	
+	# underscores, hyphens, periods, quotes
+	$common_name =~ s/\bco[- ]+enzyme/coenzyme/gi;
+	$common_name =~ s/\b([A-Z])'\b/$1-prime/gi;
+	if ( $common_name =~ /^ *"/ ) { $common_name =~ s/"//g }
+	if ( $common_name =~ /^ *'/ ) { $common_name =~ s/'//g }
+	if ( $common_name =~ /" *"/ ) { $common_name =~ s/"//g }
+	if ( $common_name =~ /' *'/ ) { $common_name =~ s/'//g }
+	if ( $common_name =~ /" *$/ ) { $common_name =~ s/"//g }
+	if ( $common_name =~ /' *$/ ) { $common_name =~ s/'//g }
+	$common_name =~ s/\.\W*$//;
+	$common_name =~ s/\. +/ /g;
+	$common_name =~ s/_/-/g;
+	$common_name =~ s/--+/-/g;
+	$common_name =~ s/"//g;
+	$common_name =~ s/ +like\b/-like/gi;
+	$common_name =~ s/($domains|famil[yie]+|$isoforms|protein)s*[- ]+/$1 /gi;
+	if ( $dbg ) { print "  2.0 hyph: $common_name\n" }
+	
+	# number jammed into word
+	$common_name =~ s/\b(($domains|$groups|$isoforms|$subunits|[a-z]{6,}|like)s*)([0-9])\b/$1 $3/gi;
+	
+	# plurals
+	$common_name =~ s/\band enzymes\b//gi;
+	$common_name =~ s/\bmembers*\b/protein/gi;
+	$common_name =~ s/families\b/family/gi;
+	$common_name =~ s/\b($domains|$groups|$subunits|$homologs|$enzymes|$protypes|$aminoacids|system|[a-z]{3,}(ent|ine|ose|one))s+\b/$1/gi;
+	if ( $dbg ) { print"  0 plural: $common_name\n" }
+
+
+	# conserved/unknown/uncharacterized
+	$common_name =~ s/uncha*re*[ct]+e*ri*[sz]e*d/uncharacterized/gi;
+	$common_name =~ s/\bunk[no]+[ow]+[wn]+\b/unknown/gi;
+	$common_name =~ s/\bconserved +regions*\b/motif/gi;
+	$common_name =~ s/\bconserved +(domain|repeat|motif)s\b/$1/gi;
+	$common_name =~ s/\bconserved\b//gi;
+	$common_name =~ s/\bprotein *protein\b/protein/gi;
+	if ( $dbg ) { print"  1.1 hypo: $common_name\n" }
+
+	# active site (from interpro classification of peptidases)
+	$common_name =~ s/\b($enzymes)s* *([-\w]+)\W*active *sites*\W*/$2 $1/gi;
+	$common_name =~ s/\b($enzymes)s* *([-\w]+)\W*inactive *sites*\W*/$2 $1-like/gi;
+	if ( $dbg ) { print"  1.2 site: $common_name\n" }
+
+	# remove putative (we'll put it back, later)
+	my $is_putative = 0;
+	my $oldname = $common_name;
+	
+	$common_name =~ s/putative/ /gi;
+	$common_name =~ s/[,(] *partial[,)]*//gi;
+	$common_name =~ s/^(fragments*|truncated|partials*)\b/ /gi;
+	$common_name =~ s/\b(fragments*|truncated|partials*)\b/ /gi;
+	$common_name =~ s/\W(fragments*|truncated|partials*)$//gi;
+	$common_name =~ s/ab initio/ /gi;
+	$common_name =~ s/prediction/predicted/gi;
+	$common_name =~ s/^ *the predicted */predicted /i;
+	$common_name =~ s/predi*cte*d prot[ei][ei]*n/ /gi;
+	$common_name =~ s/predi*cte*d CDS/ /gi;
+	$common_name =~ s/novel protein/ /gi;
+	$common_name =~ s/(predicted|prediction)\b*//gi;
+	$common_name =~ s/unkn*ow*n prot[ei][ei]*ns*/ /gi;
+	$common_name =~ s/unkn*ow*n [Cc][Dd][Ss]/ /gi;
+	$common_name =~ s/unn*amm*e*d prot[ei][ei]*ns*/ /gi;
+	$common_name =~ s/unn*amm*e*d [Cc][Dd][Ss]/ /gi;
+	$common_name =~ s/(ab )*initio/ /gi;
+	$common_name =~ s/predictions*/ /gi;
+	$common_name =~ s/ a probable/ /gi;
+	$common_name =~ s/ is probable/ /gi;
+	$common_name =~ s/ the probable/ /gi;
+	$common_name =~ s/^a probable/ /gi;
+	$common_name =~ s/^is probable/ /gi;
+	$common_name =~ s/^the probable/ /gi;
+	$common_name =~ s/probable*y*/ /gi;
+	$common_name =~ s/possible*y*/ /gi;
+	$common_name =~ s/likely/ /gi;
+	$common_name =~ s/potential/ /gi;
+	$common_name =~ s/candidates*/ /gi;
+	$common_name =~ s/hypothetiocal/hypothetical/gi;
+	$common_name =~ s/hypot[heti]*cal con[se]*rve*d prot[ei][ei]*ns*/ /gi;
+	$common_name =~ s/hypot[heti]*cal con[se]*rve*d/ /gi;
+	$common_name =~ s/hypot[heti]*cal prot[ei]+ns*/ /gi;
+	$common_name =~ s/hypot[heti]*cal/ /gi;
+	$common_name =~ s/con[se]*rve*d prot[ei]+ns*/ /gi;
+	$common_name =~ s/con[se]*rve*d/ /gi;
+
+	if ( $oldname ne $common_name ) { $is_putative = 1 }
+	$common_name =~ s/\( *\)//g;
+	$common_name =~ s/[,;: ]*$//;
+	if ( $dbg ) { print"  1.5 put1($is_putative): $common_name\n" }
+
+	# remove related (we'll put it back, later)
+	$common_name =~ s/\b($strength) +quality/$1 similarity/i;
+	$common_name =~ s/^.*?\b($strength) +($homologs|$homologous|related) +(to|of)\b/related to/i;
+	my $is_related = 0;
+	if ( $common_name =~ /\brelated *to\b/i ) {
+		$common_name =~ s/\brelated *to\b//gi;
+		$is_related = 1;
+		if ( $dbg ) { print"  1.6 rel1a: $common_name\n" }
+	}
+	if ( $common_name =~ /[-, ]+related( *proteins*)$/i ) {
+		$common_name =~ s/[-, ]+related( *proteins*)$//i;
+		$is_related = 1;
+		if ( $dbg ) { print"  1.6 rel1b: $common_name\n" }
+	}
+	elsif ( $common_name =~ /[-, ]+related$/i ) {
+		$common_name =~ s/[-, ]+related$//i;
+		$is_related = 1;
+		if ( $dbg ) { print"  1.6 rel1b: $common_name\n" }
+	}
+	if ( $common_name =~ /(\brelated\b|\blike\b|[a-z]*family)/i ) {
+		$is_related = 0;
+	}
+
+	# semi-colons
+	$common_name =~ s/;[ 0-9]*$//;
+	while ( $common_name =~ /;([^ ])/ ) {
+		$common_name =~ s/;([^ ])/; $1/;
+#print "while27: $common_name\n";
+	}
+	$common_name =~ s/ +;/;/g;
+
+	# LRR/F-box/K-box
+	$common_name =~ s/\bleuciner ich\b/leucine[- ]*rich/gi;
+	$common_name =~ s/\bleucine[- ]*rich[- ]repeats*\b/LRR/gi;
+	if ( $common_name =~ /\bLRR\b/i ) { $common_name =~ s/\( *LRR *\)//gi }
+	$common_name =~ s/\bLRR[- ]*repeat/LRR/gi;
+	$common_name =~ s/\bf[- ]*box/F-box/gi;
+	$common_name =~ s/\bk[- ]*box/K-box/gi;
+	
+	# activated/regulated/inhibited etc by
+	if ( $common_name =~ /, +([a-z]{4,}ed +by +[^ ]+)$/i ) {
+		$common_name =~ s/, +([a-z]{4,}ed +by +[^ ]+)$/ ($1)/;
+	}
+	if ( $dbg ) { print "  ...ed by: $common_name\n" }
+	
+	# redundant use of family
+	$common_name =~ s/[a-z]*family[, ]*([a-z]*family)( *protein)*/$1/gi;
+	$common_name =~ s/, *([a-z]*family)\b/ $1/gi;
+	$common_name =~ s/\bfamily +([0-9]+)[, ]+subfamily +([a-z])\b/subfamily $1$2/i;
+	$common_name =~ s/[- ]+(related|like) +($protypes) +([-a-z0-9]+-like)\b/ $3/i;
+	if ( $dbg ) { print"  2.3 famfam: $common_name\n" }
+	
+	# homolog/paralog/ortholog/similar
+	if ( $common_name =~ /identical/ ) {
+		$common_name =~ s/\b(almost|nearly|virtual+y) *identical\b/similar/gi;
+		$common_name =~ s/\bidentical +to +//gi;
+		$common_name =~ s/\bidentical\b//gi;
+	}
+	
+	$common_name =~ s/\b($strength)[- ]*related/$1 similar /gi;
+	$common_name =~ s/\bvery\b//gi;
+	if ( $common_name =~ /($homologous|$homologs)/i ) {
+		if ( $dbg ) { print "  2.5 homolog: $common_name\n" }
+		$common_name =~ s/\b($strength) *($homologous|$homologs) *($protypes)/$1 $2/gi;
+		if ( $common_name =~ /[-, ]+($homologs) *([0-9a-z]{1,2})\b/i ) {
+			if ( $is_related || $common_name =~ /family\b/i ) {
+				$common_name =~ s/[-, ]+($homologs) *([0-9a-z]{1,2})\b//i;
+				if ( $dbg ) { print "  2.51a $common_name\n" }
+			}
+			else {
+				$common_name =~ s/[-, ]+($homologs) *([0-9a-z]{1,2})\b/-like/i;
+				if ( $dbg ) { print "   2.51b $common_name\n" }
+			}
+		}
+		elsif (	$common_name =~ / +(proteins* *)([0-9a-z]{1,2}) *($homologs)/i ) {
+			$common_name =~ s/ +(proteins* *)([0-9a-z]{1,2}) *($homologs)/ protein $2-like/gi;
+			if ( $dbg ) { print "   2.51c $common_name\n" }
+		}
+		elsif (	$common_name =~ / +([0-9a-z]{1,2}) *($homologs)/i ) {
+			$common_name =~ s/ +([0-9a-z]{1,2}) *($homologs)/ $1-like/gi;
+			if ( $dbg ) { print "   2.51d $common_name\n" }
+		}
+		$common_name =~ s/[- ]+($homologous|$homologs) +(\([^()]+h\)) *(domain|repeat|[a-z]*family)/-like ($2) $3/gi;
+		$common_name =~ s/[- ]+($homologous|$homologs)[- ]+(domain|repeat|[a-z]*family)/-like $2/gi;
+		if ( $dbg ) { print "   2.52 $common_name\n" }
+		if ( $common_name =~ /\b($strength) *($homologous|$homologs)( +of | +to ){0,1}/i ) {
+			$common_name =~ s/\b($strength) *($homologous|$homologs)( +of | +to ){0,1}/ /gi;
+			$is_related = 1;
+		}
+		elsif ( $common_name =~ /\b($homologous|$homologs)( +of +| +to +)/i ) {
+			$common_name =~ s/\b($homologous|$homologs)( +of +| +to +)//gi;
+			$is_related = 1;
+		}
+		if ( $dbg ) { print "   2.53 $common_name\n" }
+		$common_name =~ s/[- ]($homologs)\b/-like/gi;
+		$common_name =~ s/\b($homologous|$homologs)\b/related/gi;
+		if ( $dbg ) { print "   2.54 $common_name\n" }
+	}
+		
+	# gene
+	$common_name =~ s/\bgenes* analog[ues]+\b//gi;
+	$common_name =~ s/\bgenes*( +[^ ]*){0,1}protein\b/protein$1/gi;
+	$common_name =~ s/\bgenes*\b/protein/gi;
+	if ( $dbg ) { print "  2.6 gene: $common_name\n" }
+
+	# -like 2 protein
+	$common_name =~ s/\blike *([0-9]{1,2}) *protein/$1-like protein/gi; 
+	if ( $dbg ) { print "  3 like : $common_name\n" }
+
+	# kDa
+	if ( $common_name !~ /\bk-/ && $common_name !~/\bk[- ]+box/i  ) {
+		$common_name =~ s/\b([1-9][0-9.]*) *(kda|kd|k)\b/$1 kDa/gi;
+	}
+
+	# containing
+	$common_name =~ s/($domains|$enzymes|$protypes)[- ]*containing/$1/gi;
+	$common_name =~ s/[- ]+containing/ containing/gi;
+	$common_name =~ s/^contain[sing]* *//i;
+	if ( $dbg ) { print "  6 cont: $common_name\n" }
+
+	# C/N-terminal
+	$common_name =~ s/\bC[- ]*term/carboxy-term/gi;
+	$common_name =~ s/\bN[- ]*term/amine-term/gi;
+	$common_name =~ s/\b(terminal|terminus|term) +(of|from|to +)/$1, /gi;
+	if ( $dbg ) { print "  7 term: $common_name\n" }
+
+	# pseudo/open reading frame
+	$common_name =~
+	  s/\bpseudo[- ]response[- ]*regulators*\b/PRR response regulator/gi;
+	$common_name =~ s/\bopen[- ]*reading[- ]*frame\b/ORF/gi;
+	if ( $dbg ) { print "  7 pseudo/ORF: $common_name\n" }
+
+	# organelle
+	$common_name =~ s/\b(chloroplast|mitochon*dria) *[0-9]+[a-z]{0,1}\b/$1/gi;
+	$common_name =~ s/\b(in|on|of|from) *(chloroplast|mitochon*dria)/$1/gi;
+	$common_name =~ s/\b((chloroplast|mitochon*dria)\W*){1,}/$1/gi;
+	$common_name =~ s/[-,\/ ]*(chloroplast|mitochon*dri)[a-z]*[- ]+(like|related)\b/$1/gi;
+	$common_name =~ s/[-,\/ ]*(chloroplast|mitochon*dri)[a-z]*\b//gi;
+	while ( $common_name =~ /\bgolgin\b/i ) {
+		if ( $common_name !~ /coiled[- ]*coil/i && $common_name !~ /\bves[a-z]*[- ]*teth[a-z]*\b/i ) {
+			$common_name =~ s/\bgolgin\b/coiled-coil domain vesicle tethering/i
+		}
+		elsif ($common_name !~ /coiled[- ]*coil/i ) {
+			$common_name =~ s/\bgolgin\b/coiled-coil domain/i;
+		}
+		elsif ( $common_name !~ /\bves[a-z]*[- ]*teth[a-z]*\b/i ) {
+			$common_name =~ s/\bgolgin\b/vesicle tethering/i;
+		}
+		else {
+			$common_name =~ s/\bgolgin\b//i;
+		}
+#print "while28: $common_name\n";
+	}
+	if ( $common_name =~ /\bgolgi[- ]*to[- ]*er\b/i ) {
+		$common_name =~ s/\bgolgi[- ]*to[- ]*er\b/golgi-to-ER/gi;
+	}
+	else {
+		$common_name =~ s/\bgolgi[- ]*(body|apparatus|complex){0,1}\b//gi;
+	}
+	if ( $dbg ) { print "  8 organelle: $common_name\n" }
+
+	# aribdopsis gene name
+	$common_name =~ s/\bAt[0-9]+g[0-9]+\b/plant/gi;
+
+	if ( $dbg ) { print "  1.1 arabidopsis: $common_name\n" }
+
+	# species names
+	$common_name =~ s/\b(arabidopsis *thaliana|a *thaliana|arabidopsis)\b/plant/gi;
+	$common_name =~ s/\b(homo *sapiens|h *sapiens|human)\b/animal/gi;
+	$common_name =~ s/\b(es[ericha]* *coli|e *coli)\b/bacterial/gi;
+	$common_name =~ s/\bchlamydia\b/bacterial/gi;
+	$common_name =~ s/drosophila *(melanogaster){0,1}/insect/gi;
+	$common_name =~ s/($protypes)[ -]*($kingdoms)][- ]*(like|related)/ $2-$3 $1/i;
+	if ( $dbg ) { print "  9 species: $common_name\n" }
+
+	# mis/alternate spellings
+	$common_name =~ s/\b(prtein|protien|protine|proteni|protie|proten|protin|protien[ei]|protein[ei]|protiin|proteen)s*/protein/gi;
+	$common_name =~ s/\bpoly[- ]+protein*\b/polyprotein/gi; 
+	$common_name =~ s/\bmonoxygenase\b/monooxygenase/gi;
+	$common_name =~ s/\baluminium\b/aluminum/gi;
+	$common_name =~ s/\basparate\b/aspartate/gi; 
+	$common_name =~ s/\bcharacterisation\b/characterization/gi;
+	$common_name =~ s/\bdimerisation\b/dimerization/gi;
+	$common_name =~ s/\blocalisation\b/localization/gi;
+	$common_name =~ s/\bdisulph/disulf/gi;
+	$common_name =~ s/\bsulph/sulf/gi;
+	$common_name =~ s/\bhaem\b/heme/gi;
+	$common_name =~ s/\bhaem([aeiou])/hem$1/gi;
+	$common_name =~ s/\btumour(s){0,1}\b/tumor$1/gi;
+	if ( $common_name =~ /\b(HIN|NHL)/i && $common_name =~ /\bhairpin\b/ ) {
+		$common_name =~ s/\bhairpin\b/harpin/gi;
+	}
+	
+	# sub-/super-
+	$common_name =~ s/\bsub[- ]+($groups|family)/sub$1/gi;
+	$common_name =~ s/\bsub[- ]+protein*/protein/gi;
+	$common_name =~ s/\bsuper[- ]+family/superfamily/gi;
+	if ( $dbg ) { print "  9.1 mis/alt sp: $common_name\n" }
+
+	# bi/multifunctional
+	$common_name =~ s/\b(bi|multi)-*function[aling]*( +proteins*){0,1}//gi;
+	if ( $dbg ) { print "  9.2 blanks: $common_name\n" }
+
+	# remove accession number at end of name
+	if ( $common_name =~ /[, ]+[A-Z]{2,}[0-9]{4,}$/ ) {
+		$common_name =~ s/[, ]+[A-Z]{2,}[0-9]{4,}$//;
+	}
+	if ( $dbg ) { print "  12 PFnnnn: $common_name\n" }
+	
+	# isoforms
+	$common_name =~ s/\bisoenzymes*\b/isozyme/gi;
+	$common_name =~ s/\bmembers*\b/protein/gi;
+	if ( $common_name =~ /^.*($isoforms) +[^ ]+ +of +/i ) {
+		$common_name =~ s/^.*($isoforms) +[^ ]+ +of +//gi;
+	}
+	elsif ( $common_name =~ /^.*($isoforms) +of +/i ) {
+		$common_name =~ s/^.*($isoforms) +of +//gi;
+	}
+	elsif ( $common_name =~ /($isoforms) +[^ ]+$/i ) {
+		$common_name =~ s/($isoforms) +[^ ]+$//gi;
+	}
+	elsif ( $common_name =~ /($isoforms)$/i ) {
+		$common_name =~ s/($isoforms)$//gi;
+	}
+	elsif ( $common_name =~ /($isoforms) +([0-9]{1,2}[-a-z_]{0,2}|[a-z]{1,3}[-0-9_]{0,3}|$greek|$roman)\b/i ) {
+		$common_name =~ s/($isoforms) +([0-9]{1,2}[-a-z_]{0,2}|[a-z]{1,3}[-0-9_]{0,3}|$greek|$roman)\b//gi;
+	}
+	if ( $dbg ) { print "  13 isoform: $common_name\n" }
+
+	# remove extraneous uses of the word "protein"
+	#$common_name = strip_protein( $common_name );
+	$common_name =~ s/^ *(function|product|protein)s*: *//;
+	while ( $common_name =~ /($enzymes|$protypes) +protein\b/i ) {
+		$common_name =~ s/($enzymes|$protypes) +protein\b/$1/gi;
+#print "while29: $common_name\n";
+	}
+	while ( $common_name =~ /\bprotein +(domain|[a-z]*family|repeat|motif)\b/i ) {
+		$common_name =~ s/\bprotein +(domain|[a-z]*family|repeat|motif)\b/$1/gi;
+#print "while30: $common_name\n";
+	}
+	if ( $common_name =~ /^(.*\b($goodends) +([^ ]+)) +protein$/i ) {
+		my $root = $1;
+		my $detail = $3;
+		if ( is_protein_detail( $detail) && $root !~ /($badends)$/i ) { $common_name = $root }
+	} 
+	if ( $dbg ) { print "  13.3: $common_name\n" }
+	
+	# empty parens/brackets
+	$common_name =~ s/\( *\)//g;
+	$common_name =~ s/\[ *\]//g;
+	$common_name =~ s/\( *protein *\)//g;
+	$common_name =~ s/\[ *protein *\]//g;
+	$common_name =~ s/[-,;:. ]+$//;
+	$common_name =~ s/^[-,;:. ]+//;
+	if ( $dbg ) { print "  13.4: $common_name\n" }
+	
+#	# ribosomal protein abbreviations
+#	if ( $common_name =~ /\b([LRS][1-9][0-9]{0,1})([a-z]{0,1})\b/i ) {
+#		my $old = "$1$2";
+#		my $new = uc( $1 ) . lc( $2 );
+#		if ( $new ne $old ) { $common_name =~ s/\b$old\b/$new/gi; }
+#		if  ( $common_name !~ /ribo/i ) {
+#			$common_name =~ s/\b$new\b/ribosomal protein $ribo/;
+#		}
+#	}
+	
+	# weird family names
+	$common_name =~ s/\blike[- ]+sm\b/LSm/gi;
+	$common_name =~ s/\blsm *family\b/LSm family/gi;
+	$common_name =~ s/\bp *-+ *450\b/P450/gi; 
+	$common_name =~ s/\bcyp450\b/P450/gi;
+	$common_name =~ s/\bp450\b/P450/gi;
+	$common_name =~ s/\bytochrome\b/cytochrome/gi;
+	$common_name =~ s/cytochrome protein P450/cytochrome P450 protein/i;
+	if ( $common_name =~ /\bP450\b/i && $common_name !~ /chrome/i ) {
+		$common_name =~ s/\bP450\b/cytochrome P450/i;
+	}
+	if ( $common_name =~ /\b(P450|LSm|14-3-3|4F5)\b/ && $common_name !~ /\b(like|related|[a-z]*family)\b/i ) {
+		$common_name =~ s/\b(P450|LSm|14-3-3|4F5)\b/$1 family/i;
+	}
+	$common_name =~ s/^protein *cyp([0-9]+[a-z0-9]*\b)/cyp$1/i;
+	$common_name =~ s/\bcyp([0-9]+)[0-9a-z]*\b/cyp$1/gi;
+	$common_name =~ s/\bP450 *([0-9][a-z0-9]*)-like\b/P450 family $1/i;
+	$common_name =~ s/\bP450 *([a-z]*family) *cyp([0-9])/P450 $1 $2/gi;
+	$common_name =~ s/\bP450 *[a-z]*family *([0-9]+)-*[a-z]-*[vp0-9]*\b/P450 family $1/gi;
+	$common_name =~ s/\bfamily[, ]*($protypes) *[0-9a-z]{1,3}\b/family protein/gi;
+	$common_name =~ s/family *([-a-z0-9]+)[, ]*($protypes) *[0-9a-z]{1,3}\b/family $1 protein/gi;
+	while ( $common_name =~ /\b(cyp([0-9]+))\b/i ) {
+		my $cyp = $1;
+		my $num = $2;
+		if ( $common_name !~ /family\b/i && $common_name !~ /\bP450\b/i ) {
+			$common_name =~ s/[-:;, ]*$cyp\b/, cytochrome P450 family $num/i;
+		}
+		elsif ( $common_name =~ /family *$cyp\b/i ) {
+			$common_name =~ s/family *$cyp\b/family $num/i;
+		}
+		else {
+			$common_name =~ s/\b$cyp\b//i;
+		}
+#print "while31: $common_name\n";
+	}
+	if ( $dbg ) { print "  13.5: $common_name\n" }
+
+	# make sure we have a valid ending
+	my $endOK = 0; 
+	if ( $common_name =~ /\b($protypes) +([-a-z0-9]+\b(like|related))$/i ) {
+		$common_name =~ s/\b($protypes)[- ]*+([-a-z0-9]+\b(like|related))$/$2 $1/i;
+		$is_related = 0;
+	}
+	
+	#protein kingdom => kingdom protein
+	$common_name =~ s/\b($protypes)[- ]*($kingdoms)$/$2 $1/;
+
+	# allow protein at start of name?
+	$common_name =~ s/^protein +(of|with|for) +//i;
+	if ( $common_name =~ /^protein *($keeppros|[a-z]{3,}ase|lyase)\b/i ) {
+		if ( $dbg ) { print "protein0: $common_name\n" }
+	}
+	elsif ( $common_name =~ /^protein\W+(.*)/i ) {
+		my $main = $1;
+		if ( $dbg ) { print "protein1: $common_name | $main\n" }
+		$common_name = $main;
+		if (  is_protein_name( $main ) ) {
+			$endOK = 1;
+			if ( $dbg ) { print "protein2: $common_name\n" }
+		}
+	}
+	elsif ( ! $is_related && is_protein_name( $common_name ) ) {
+		$endOK = 1;
+		if ( $dbg ) { print "protein3: $common_name\n" }
+	}
+	
+	# protein protein
+	$common_name =~ s/($protypes) +protein/$1/gi;
+	
+	# make sure the protein name has a valid ending
+	# remove parenthetical comment at end (we be restored later)
+	if ( $dbg ) { print "endok0: $common_name\n" } 
+	if ( ! $endOK ) {
+		my $basename = base_protein_name( $common_name );
+		if ( $basename =~ /($goodends)$/i && $basename !~ /($badends)$/i ) {
+			$endOK = 1;
+			if ( $dbg ) { print "endOK=1: $basename (from \"$common_name\")\n" }
+		}
+		elsif ( $basename !~ / / && is_protein_name( $basename ) ) {
+			$endOK = 1;
+			if ( $dbg ) { print "endOK=1: $basename (from \"$common_name\")\n" }
+		}
+		else {
+			if ( $dbg ) { print "endOK=0: $basename (from \"$common_name\")\n" }			
+		}
+	}
+
+	# append protein if we do not have a valid ending
+	if ( ! $endOK ) {
+		if ( $common_name =~ /^(.*) +([^ ]+)$/ ) {
+			my $root = $1;
+			my $ending = $2;
+			if ( $dbg ) { print "14.2: \"$root\"  ending: \"$ending\"\n" }
+			if ( $ending =~ /\b($kingdoms)$/i ) {
+				$common_name = "$root $ending protein";
+			}
+			elsif ( is_protein_detail( $ending )
+					&& $ending !~ /($groups|kDa)$/i
+					&& $root !~ /\b($subunits|[a-z]*family|$groups)$/i ) {
+				$common_name = "$root protein $ending";
+				if ( $dbg ) { print "  14.21 pro: $common_name\n" }
+			}
+			else {
+				$common_name .= " protein";
+				if ( $dbg ) { print "  14.22 pro: $common_name\n" }
+			}
+		}
+		else {
+			$common_name .= " protein";
+			if ( $dbg ) { print "  14.23 pro: $common_name\n" }
+		}
+		$endOK = 1;
+	}
+	if ( $dbg ) { print "  14.24 pro: $common_name\n" }
+
+	# restore related
+	if ( $is_related && $common_name !~ /\b(like|related)\b/i ) {
+		if ( $common_name =~ /[- ]+protein$/i ) {
+			$common_name =~ s/[- ]+protein$/-like protein/i;
+		}
+		elsif ( $common_name =~ /($goodends)$/i && $common_name !~ /($badends)$/i ) {
+			$common_name .= "-like protein";
+		}
+		else {
+			$common_name .= ", related protein";
+		}
+		if ( $dbg ) { print "  14.4 rel2: $common_name\n" }
+	}
+
+	$common_name =~ s/\b(related|like)[-, ]*(related|like)\b/like/gi;
+	$common_name =~ s/(family|domain|repeat|motif)[- ]*(like|related)/$1/gi;
+	$common_name =~ s/(\w) +(like|related)/$1-$2/gi;
+	$common_name =~ s/[- ]+like[- ]*([^ ]*like)\b/-$1/gi;
+	$common_name =~ s/ +protein[-, ]*related *protein$/-like protein/i;
+	$common_name =~ s/(repeat|domain|motif) +([a-z]*family)/$1/gi;
+	$common_name =~ s/ [a-z]*family +([a-z]*family)/$1/gi;
+	$common_name =~ s/([a-z])[- ]+($protypes)[- ]+([^ ]*-(like|related))[- ]+protein\b/$1 $3 protein/i;
+	while ( $common_name =~ /\b($domains)[- ]*(repeat|domain|motif)\b/i ) {
+		$common_name =~ s/\b($domains)[- ]*(repeat|domain|motif)\b/$1/i;
+#print "while32: $common_name\n";
+	}
+	if ( $dbg ) { print "  15 redundant: $common_name\n" }
+	if ( $common_name =~ /^($goodends), *(.*\b([a-z]*family|$domains|$groups|like|related|protein) *($greek|$roman|[a-zA-Z0-9]{1,3})*)$/i ) {
+		my $ptype = $1;
+		my $descr = $2;
+		if ( $dbg ) { print "  15.1a phrasing: \"$ptype\" and \"$descr\"\n" }
+		if ( $descr !~ /^ *([a-z]*family|domain|repeat|motif|$groups|like|related) *protein$/i ) {
+			$descr =~ s/ *protein$//;
+			if ( $ptype !~ /\b($badends)$/i && $ptype !~ /\b($gerunds)$/i && length( $descr ) < 40 && $descr !~ /[?;,&]/ ) {
+				$common_name = "$descr $ptype";
+				if ( $dbg ) { print "  15.1b phrasing: $common_name\n" }
+			}
+		}
+	}
+	elsif ( $common_name =~ /^([-+a-z0-9]+ +($goodends)), (.*\b([a-z]*family|$domains|$groups|like|related|protein) *($greek|$roman|[a-zA-Z0-9]{1,3})*)$/i ) {
+		my $ptype = $1;
+		my $descr = $3;
+		if ( $dbg ) { print "  15.2a phrasing: \"$ptype\" and \"$descr\"\n" }
+		if ( $descr !~ /^ *([a-z]*family|domain|repeat|motif|$groups|like|related) *protein$/i ) {
+			$descr =~ s/ *protein$//;
+			if ( $ptype !~ /\b($badends)$/i && $ptype !~ /\b($gerunds)$/i && length( $descr ) < 40 && $descr !~ /[?;,&]/ ) {
+				$common_name = "$descr $ptype";
+				if ( $dbg ) { print "  15.2b phrasing: $common_name\n" }
+			}
+		}
+	}
+	$common_name =~ s/(\w)[- ]+protein[- ]+(like|related)[- ]+protein$/$1-$2 protein/;
+	$common_name =~ s/\bprotein[- ]+(related|like)[- ]+([a-z]*family)/ $2/gi;
+	$common_name =~ s/[- ]+(related|like)[- ]+([a-z]*family)/ $2/gi;
+	$common_name =~ s/[- ]+(related|like)[- ]+protein[- ]+([a-z]*family)/ $2/gi;
+	$common_name =~ s/(family) *([0-9a-z]+?)[- ]+like\b/$1 $2/i;
+	
+	# transferase/monoxygenase not allowed alone
+	if ( $common_name =~ /^W*(transferase|monoxygenase)s*\W*$/i ) {
+		$common_name = "$1-like protein";
+	}
+
+	# restore putative
+	if ($is_putative) {
+		$common_name .= ", putative";
+		if ( $dbg ) { print "  16 put2: $common_name\n" }
+	}
+	
+	# remove empty parens (etc)
+	$common_name =~ s/\( *\)//gi;
+	$common_name =~ s/\[ *\]//gi;
+	$common_name =~ s/\{ *\}//gi;
+	
+	# leading/trailing/consecutive comma/dash/slash/blank
+	$common_name =~ s/ *-+ */-/g;
+	$common_name =~ s/^ +//g;
+	$common_name =~ s/  +/ /g;
+	$common_name =~ s/ +$//g;
+	$common_name =~ s/ +([-,])/$1/g;
+	$common_name =~ s/([-,] +)/$1/g;
+	$common_name =~ s/--+/-/g;
+	$common_name =~ s/,,+/,/g;
+	$common_name =~ s/[-, ]*\/[-, ]*/\//g;
+	$common_name =~ s/^[-, \/]+//;
+	$common_name =~ s/[-, \/]+$//;
+	$common_name =~ s/  +/ /g;
+	$common_name =~ s/-and\b/- and/g;	
+
+if ( $dbg ) { print " final: $common_name\n" }
+	return $common_name;
+}
+
+sub does_name2_imply_name1 {
+	my ( $name1, $name2 ) = @_;
+
+#print "\n$name2 => $name1?\n";
+
+	# family names (similar/protein/domain/like etc)
+	# do not imply, but can be implied by, exact names
+	if ( normalize_name($name1) !~ /\b...FAM\b/ && $name1 !~ /putative/i ) {
+		if ( normalize_name($name2) =~ /\b...FAM\b/ || $name2 =~ /putative/i ) {
+			return 0;
+		}
+	}
+
+	# does name2 contain all of the keywords from name1?
+	my $wgt2  = 0;
+	my $wgt1  = 0;
+	my $keys1 = get_keywords( $name1, 2 );    # exclude "family" (etc) and compound words
+	my $keys2 = get_keywords( $name2, 1 );    # exclude compound words
+	my $norm2 = normalize( $name2, 1 );
+
+	for my $key ( keys %{ $$keys1{keywgt} } ) {
+		$wgt1 += $$keys1{keywgt};
+		if ( exists $$keys2{keywgt}{$key} ) {
+			$wgt2 += $$keys1{keywgt};
+		}
+#print "  $key  $wgt1 / $wgt2\n";
+	}
+	if ( $wgt2 > 0.99 * $wgt1 ) { return 1 }	
+	
+	return 0;
+}
+
+sub keywords1_contained_by_keywords2 {
+	my ( $keywords1, $keywords2 ) = @_;
+	
+	my $match = 0;
+	for my $kw ( keys %{ $$keywords1{keywgt} } ) {
+		if ( ! exists $$keywords2{keywgt}{$kw} ) { return 0 }
+		$match = 1;
+	}
+	return $match;
+}
+
+sub keyword_similarity {
+	my ( $keywords1, $keywords2 ) = @_;
+	my $dbg = 0;
+
+	my $tot1 = 0;
+	my $match1 = 0;
+	my %missed1;
+	for my $kw ( keys %{ $$keywords1{keywgt} } ) {
+		$tot1 += $$keywords1{keywgt}{$kw};
+		if ( exists $$keywords2{keywgt}{$kw} ) {
+			$match1 += $$keywords1{keywgt}{$kw};
+		}
+		else {
+			$missed1{$kw} += $$keywords1{keywgt}{$kw};
+		}
+	}
+
+	my $tot2 = 0;
+	my $match2 = 0;
+	my %missed2;
+	for my $kw ( keys %{ $$keywords2{keywgt} } ) {
+		$tot2 += $$keywords2{keywgt}{$kw};
+		if ( exists $$keywords1{keywgt}{$kw} ) {
+			$match2 += $$keywords2{keywgt}{$kw};
+		}
+		else {
+			$missed2{$kw} = $$keywords2{keywgt}{$kw};
+		}
+	}
+
+	if ( $dbg ) {
+		print "k1: " . join( " ", sort { $b cmp $a } keys %{ $$keywords1{keywgt} } ) . "\n";
+		print "k2: " . join( " ", sort { $b cmp $a } keys %{ $$keywords2{keywgt} } ) . "\n";
+		
+		print "match1: $match1/tot1\n";
+		print "match2: $match2/tot2\n";
+	}	
+	
+	if ( $tot1 < 0.75 ) { $tot1 = 0.75 }
+	if ( $tot2 < 0.75 ) { $tot2 = 0.75 }
+	
+	for my $m1 ( keys %missed1 ) {
+		for my $m2 ( keys %missed2 ) {
+			if ( $m1 = /-/ || $m2 =~ /-/ ) {
+				my $t1 = $m1;
+				$t1 =~ s/-//g;
+				my $t2 = $m1;
+				$t2 =~ s/-//g;
+				if ( $t2 eq $t1 ) {
+					$match1 +=  $$keywords1{keywgt}{$m1} / 2.0;
+					$match2 +=  $$keywords2{keywgt}{$m2} / 2.0;
+					delete $missed2{$m2};
+					last;
+				}
+			}
+			elsif ( lc ( $m1 ) eq lc( $m2 ) ) {
+				$match1 +=  $$keywords1{keywgt}{$m1} / 2.0;
+				$match2 +=  $$keywords2{keywgt}{$m2} / 2.0;
+				delete $missed2{$m2};
+				last;
+			}
+			elsif ( $m2 =~ /#/ || $m1 =~ /#/ ) {
+				my $t2 = $m2;
+				$t2 =~ s/#//g;
+				my $t1 = $m1;
+				$t1 =~ s/#//g;
+				if ( $t1 eq $t2 ) {
+					$match1 +=  $$keywords1{keywgt}{$m1} / 2.0;
+					$match2 +=  $$keywords2{keywgt}{$m2} / 2.0;
+					delete $missed2{$m2};
+					last;
+				}
+			}
+		}
+	} 
+
+	my $pct1 = $match1 / $tot1;
+	my $pct2 = $match2 / $tot2;
+	
+	my $sim = sqrt( $pct1 * $pct2 );
+
+	return $sim;
+
+}
+1;

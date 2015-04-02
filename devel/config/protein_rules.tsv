@@ -1,0 +1,30 @@
+CUSTOMDB High	CUSTOMDB	"min_scoverage=50,min_qcoverage=50,min_similarity=60,max_evalue=1E-10"	"evalue,pct_qcoverage"	trembl_name_parser
+CUSTOMDB High	CUSTOMDB	"min_coverage=90,min_identity=40,min_similarity=50,max_evalue=1E-10"	"evalue,pct_qcoverage"	trembl_name_parser
+
+NR High	NR	"min_scoverage=50,min_qcoverage=50,min_similarity=60,max_evalue=1E-20"	"taxon_distance,evalue,pct_qcoverage"	nr_name_parser
+UNIREF High	UNIREF	"min_scoverage=50,min_qcoverage=50,min_similarity=60,max_evalue=1E-10"	"taxon_distance,evalue,pct_qcoverage"	uniref_name_parser
+NR High	NR	"min_coverage=90,min_identity=40,min_similarity=50,max_evalue=1E-10"	"taxon_distance,evalue,pct_qcoverage"	nr_name_parser
+UNIREF High	UNIREF	"min_coverage=90,min_identity=40,min_similarity=50,max_evalue=1E-10"	"taxon_distance,evalue,pct_qcoverage"	uniref_name_parser
+
+Equivalog	PFAM/TIGR_HMM	"min_scoverage=90,is_equivalog,is_trusted"	"iso_type,pct_qcoverage,evalue"	tigrfam_name_parser
+PFAM/TIGR High	PFAM_TIGR	"min_scoverage=90,is_trusted"	"iso_type,pct_qcoverage,evalue"	tigrfam_name_parser
+CAZY High	CAZY	"min_scoverage=90,is_trusted"	"pct_qcoverage,evalue"	cazy_name_parser
+CDD High	CDD	"min_scoverage=90,min_identity=50,min_similarity=60,max_evalue=1E-10"	"evalue,pct_qcoverage"	cdd_name_parser
+
+CUSTOMDB	CUSTOMDB	"min_coverage=70,min_identity=30,min_similarity=40,max_evalue=1E-10"	"pct_qcoverage,evalue"	trembl_name_parser
+NR	NR	"min_coverage=70,min_identity=30,min_similarity=40,max_evalue=1E-10"	"taxon_distance,pct_qcoverage,evalue"	nr_name_parser
+UNIREF	UNIREF	"min_coverage=70,min_identity=30,min_similarity=40,max_evalue=1E-10"	"taxon_distance,pct_qcoverage,evalue"	uniref_name_parser
+
+PFAM/TIGR	PFAM_TIGR	is_trusted	"iso_type,pct_qcoverage,evalue"	tigrfam_name_parser
+CAZY	CAZY	is_trusted	"pct_qcoverage,evalue"	cazy_name_parser
+CDD	CDD	"min_scoverage=75,min_identity=40,min_similarity=50,max_evalue=1E-10"	"evalue,pct_qcoverage"	cdd_name_parser
+
+TMHMM	TMHMM			tmhmm_name_parser
+
+CUSTOMDB Low	CUSTOMDB	max_evalue=1E-5	"evalue,pct_qcoverage"	exact_name_parser:hypothetical protein
+NR Low	NR	max_evalue=1E-5	"evalue,taxon_distance,pct_qcoverage"	exact_name_parser:hypothetical protein
+UNIREF Low	UNIREF	max_evalue=1E-5	"evalue,taxon_distance,pct_qcoverage"	exact_name_parser:hypothetical protein
+PFAM/TIGR Low	PFAM_TIGR	max_evalue=1E-5	"evalue,pct_qcoverage"	exact_name_parser:hypothetical protein
+CDD Low	CDD	max_evalue=1E-5	"evalue,pct_qcoverage"	exact_name_parser:hypothetical protein
+CAZY Low	CAZY	max_evalue=1E-5	"evalue,pct_qcoverage"	exact_name_parser:hypothetical protein
+PRIAMRPS Low	PRIAMRPS	max_evalue=1E-5	"evalue,pct_qcoverage"	exact_name_parser:hypothetical protein
