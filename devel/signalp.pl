@@ -92,7 +92,7 @@ my $id_rep = "$results_path/id_repository";
 system("touch $id_rep");
 
 my $fasta_split = "$FindBin::Bin/fasta_splitter.pl";
-my $run_lipo = "$FindBin::Bin/run_signalp_etc.pl";
+my $run_signal = "$FindBin::Bin/run_signalp_etc.pl";
 
 @files = &read_list_file($list);
 
@@ -124,7 +124,7 @@ my @JOBS;
 my $dir = "$results_path/partitions/fasta" . '$SGE_TASK_ID';
 my $file = "$dir/fasta" . '$SGE_TASK_ID.fasta';
 
-my $run_cmd = "$run_lipo $file $dir";
+my $run_cmd = "$run_signal $file $dir";
 if ($config) {
 	$run_cmd .= " $config";
 }

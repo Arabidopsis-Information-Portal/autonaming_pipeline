@@ -14,7 +14,7 @@ my $config = $ARGV[2];
 my $program_path = $0;
 my @prog = split '/', $program_path;
 my $program = pop @prog;
-my $input_type = "LipoproteinMotifBSML";
+#my $input_type = "LipoproteinMotifBSML";
 my @files;
 
 my $cfg;
@@ -23,8 +23,8 @@ if ($config) {
 }
 my $path = &get_lib_path($cfg);
 
-my $id_rep = "$results_path/id_repository";
-system("touch $id_rep");
+#my $id_rep = "$results_path/id_repository";
+#system("touch $id_rep");
 
 #use lib "/usr/local/devel/VIRIFX/software/VGD/lib";
 #use Getopt::Euclid 0.2.4 qw(:vars);
