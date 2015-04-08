@@ -29,7 +29,7 @@ my $path = &get_lib_path($cfg);
 #use Getopt::Euclid 0.2.4 qw(:vars);
 my $hmm3 = "/usr/local/packages/hmmer-3.0/bin/hmmscan";
 my $htab = "$FindBin::Bin/htab.pl";
-my $cazyhtab = "$FindBin::Bin/htab.pl";
+my $cazyhtab = "$FindBin::Bin/hmmpfam2htab.pl";
 my $htabdb;
 if ($snapshot_dir =~ /.*db$/) {
 	$htabdb = $snapshot_dir;
@@ -50,7 +50,13 @@ print "$hmm3_cmd\n";
 system($hmm3_cmd);
 
 my $htab_file = "$outfile.htab";
-my $htab_cmd = "cat $outfile | $htab -d $htabdb > $htab_file";
+my $htab_cmd;
+
+if ($hmmdb =~ /CAZY/) {
+	$htab_cmd = "$cazyhtab --in_file $outfile --mldb_file $htabdb --output_htab $htab_file";
+} else {
+	$htab_cmd = "cat $outfile | $htab -d $htabdb > $htab_file";
+}
 print "$htab_cmd\n";
 system($htab_cmd);
 
