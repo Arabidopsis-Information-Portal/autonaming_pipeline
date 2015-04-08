@@ -101,7 +101,7 @@ foreach my $prog (keys %EXECS) {
 	print "$prog\t$EXECS{$prog}->{'cmd'}\n";
 }
 
-my $results_list = "$results_path/parsed_results.list";
+my $results_list = "$results_path/evidence_service_results.list";
 open (RES_LIST, ">$results_list") || die "cannot open $results_list. $!\n"; 
 foreach my $dir (@order) {
 	print "Running $dir service...\n";
@@ -121,7 +121,7 @@ foreach my $dir (@order) {
 	print "$cmd\n";
 	system $cmd;
 
-	my @list = `ls $EXECS{$dir}->{'dir'}/*.parsed`;
+	my @list = `ls $EXECS{$dir}->{'dir'}/*.list`;
 	foreach my $item (@list) {
 		chomp $item;
 		print RES_LIST "\n";
