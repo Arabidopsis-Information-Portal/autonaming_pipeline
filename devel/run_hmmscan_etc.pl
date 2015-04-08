@@ -29,6 +29,7 @@ my $path = &get_lib_path($cfg);
 #use Getopt::Euclid 0.2.4 qw(:vars);
 my $hmm3 = "/usr/local/packages/hmmer-3.0/bin/hmmscan";
 my $htab = "$FindBin::Bin/htab.pl";
+my $cazyhtab = "$FindBin::Bin/htab.pl";
 my $htabdb;
 if ($snapshot_dir =~ /.*db$/) {
 	$htabdb = $snapshot_dir;
@@ -53,6 +54,6 @@ my $htab_cmd = "cat $outfile | $htab -d $htabdb > $htab_file";
 print "$htab_cmd\n";
 system($htab_cmd);
 
-my $parsed_file = &run_parser_script($shell_template,$results_path,$htab_file,$parser,$snapshot_dir,$input_type);
+#my $parsed_file = &run_parser_script($shell_template,$results_path,$htab_file,$parser,$snapshot_dir,$input_type);
 
 &print_time("ENDTIME");

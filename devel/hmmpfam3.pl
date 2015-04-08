@@ -123,7 +123,7 @@ my $list2 = "$results_path/partitions.list";
 my @files2 = &read_list_file($list2);
 
 my @JOBS;
-my @parsed_files;
+my @htab_files;
 foreach my $file (@files2) {
 	my @parts = split '/', $file;
 	my $in_name = pop @parts;
@@ -134,7 +134,7 @@ foreach my $file (@files2) {
 	my $outfile = "$dir/hmm3_results.out";
 	my $htab_file = $outfile . ".htab";
 	my $parsed_file = "$htab_file.parsed";
-	push @parsed_files, $parsed_file;
+	push @htab_files, $htab_file;
 }
 
 my $dir = "$results_path/partitions/fasta" . '$SGE_TASK_ID';
@@ -160,7 +160,7 @@ wait_for_grid_jobs_arrays( \@JOBS,1,$max_job_array ) if ( scalar @JOBS );
 
 print "All jobs complete.\n";
 
-my $merged_htab =  "$results_path/hmm3_all.htab.parsed";
-&cat_files(\@parsed_files, $merged_htab);
+my $htab_list =  "$results_path/hmmpfam.htab.list";
+&cat_files($htab_list, \@htab_files);
 
-print "Merged hmm3 htab files to $merged_htab.\n";
+print "Wrote htab results list to $htab_list.\n";
