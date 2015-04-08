@@ -124,15 +124,10 @@ if ($cfg->val($service, 'blast_db')) {
 
 print "Converting to btab.\n";
 my @btab_files;
-#my @taxa_files;
-#my @tax_anno_files;
 my @SINGLES;
 foreach my $dir (@files) {
 	my $sort_prog = "uniref_merge_and_parse.pl";
 	my $sorted_file = "$dir/sorted_uniref_results.btab";
-#	my $parsed_file = "$dir/sorted_uniref_results.btab.parsed";
-#	my $perc_id_file = "$sorted_file.perc_id";
-#	my $taxa_id_file = "$perc_id_file.taxa_id";
 	my $taxa_file = "$dir/taxa_summary.tsv";
 	my $sort_cmd = "$merge_and_parse $sorted_file $dir $snapshot_dir";
 	if ($config) {
@@ -148,8 +143,6 @@ foreach my $dir (@files) {
 	push @SINGLES, $job_id;
 
 	push @btab_files, $sorted_file;
-#	push @taxa_files, $taxa_file;
-#	push @tax_anno_files, $taxa_id_file;
 }
 print "waiting for grid jobs...\n";
 wait_for_grid_jobs_arrays( \@SINGLES,1,1 ) if ( scalar @SINGLES );
