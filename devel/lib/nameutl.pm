@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 #use warnings;
 use strict;
-require "/local/devel/ANNOTATION/APIS/pipeline/lib/com2GOutl.pm";
+require "/usr/local/devel/ANNOTATION/APIS/pipeline/lib/com2GOutl.pm";
 our $verbose;
 
 my $greek = "alpha|beta|gamma|delta|eta|epsilon|iota|mu|omega|omnicron|pi|theta|tau|zeta";

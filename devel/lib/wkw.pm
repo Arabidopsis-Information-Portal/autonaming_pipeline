@@ -118,7 +118,7 @@ sub get_excluded_taxons {
 }
 
 sub collect_GO_definitions {
-	my %tmp = %{ do "/local/devel/ANNOTATION/APIS/pipeline/lib/goNames.dmp" };
+	my %tmp = %{ do "/usr/local/devel/ANNOTATION/APIS/pipeline/lib/goNames.dmp" };
 	for my $go ( values %tmp ) {
 		if ( $$go{type} =~ /^(exact|definition)$/i ) {
 			$goNames{ $$go{goId} }{ $$go{name} } = 1;

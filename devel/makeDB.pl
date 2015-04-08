@@ -31,8 +31,8 @@ $dbh->disconnect();
 # load evidence
 for my $dataname ( "TRNPRO", "QRYSEQ", "UNIREF", "CDD", "PRIAMRPS", "TAIR", "CUSTOMDB", "CAZY", "PFAM_TIGR", "PRIAMEC", "TMHMM" ) {
 		
-	if ( $dataname eq "TRNPRO" ) {
-		my $datafile = "$outpath/output_repository/longest_reading_frame/$pipeid" . "_orfs/longest_reading_frame.faa.list";
+	if ( $dataname eq "TRNPRO" ) { ## Not sure what this is yet.
+		my $datafile = "$outpath/longest_reading_frame.faa.list";
 		if ( -e $datafile ) {
 			print "$dataname: loading $datafile\n";
 			my $tmptrnpro = "$workspace/tmptrnpro";
@@ -48,8 +48,8 @@ for my $dataname ( "TRNPRO", "QRYSEQ", "UNIREF", "CDD", "PRIAMRPS", "TAIR", "CUS
 			print "$dataname: $datafile does not exist\n";
 		}
 	}
-	elsif ( $dataname eq "QRYSEQ" ) {
-		my $datafile = "$outpath/output_repository/split_multifasta/$pipeid" . "_split/split_multifasta.fsa.list";
+	elsif ( $dataname eq "QRYSEQ" ) { ## Not sure what this is yet.
+		my $datafile = "$outpath/split_multifasta.fsa.list";
 		if ( -e $datafile ) {
 			print "$dataname: loading $datafile\n";
 			my $tmpqryseq = "$workspace/tmpqryseq";
@@ -68,33 +68,33 @@ for my $dataname ( "TRNPRO", "QRYSEQ", "UNIREF", "CDD", "PRIAMRPS", "TAIR", "CUS
 		my $datafile;
 		if ( $dataname eq "UNIREF" ) {
 			if ( ! $is_transcripts ) {
-				$datafile = "$outpath/output_repository/ncbi-blastp/$pipeid" . "_uniref/ncbi-blastp.btab.list";
+				$datafile = "$outpath/uniref_results/ncbi-blastp.btab.list";
 			}
 			else {
-				$datafile = "$outpath/output_repository/ncbi-blastx/$pipeid" . "_uniref/ncbi-blastx.btab.list";
+				$datafile = "$outpath/uniref_results/ncbi-blastx.btab.list";
 			}
 		}
 		elsif ( $dataname eq "CUSTOMDB" ) {
 			if ( ! $is_transcripts ) {
-				$datafile = "$outpath/output_repository/ncbi-blastp/$pipeid" . "_customdb/ncbi-blastp.btab.list";
+				$datafile = "$outpath/_customdb/ncbi-blastp.btab.list";
 			}
 			else {
-				$datafile = "$outpath/output_repository/ncbi-blastx/$pipeid" . "_customdb/ncbi-blastx.btab.list";
+				$datafile = "$outpath/_customdb/ncbi-blastx.btab.list";
 			}
 		}
 		elsif ( $dataname eq "TAIR" ) {
 			if ( ! $is_transcripts ) {
-				$datafile = "$outpath/output_repository/ncbi-blastp/$pipeid" . "_tair/ncbi-blastp.btab.list";
+				$datafile = "$outpath/tair_results/ncbi-blastp.btab.list";
 			}
 			else {
-				$datafile = "$outpath/output_repository/ncbi-blastx/$pipeid" . "_tair/ncbi-blastx.btab.list";
+				$datafile = "$outpath/tair_results/ncbi-blastx.btab.list";
 			}
 		}
 		elsif ( $dataname eq "CDD" ) {
-			$datafile = "$outpath/output_repository/rpsblast/$pipeid" . "_cdd/rpsblast.btab.list";
+			$datafile = "$outpath/cdd_results/rpsblast.btab.list";
 		}
 		elsif ( $dataname eq "PRIAMRPS" ) {
-			$datafile = "$outpath/output_repository/rpsblast/$pipeid" . "_priamrps/rpsblast.btab.list";
+			$datafile = "$outpath/priamrps_results/rpsblast.btab.list";
 		}
 		else {
 			die "\nUnprogrammed blast job: \"$dataname\"\n";
@@ -137,10 +137,10 @@ for my $dataname ( "TRNPRO", "QRYSEQ", "UNIREF", "CDD", "PRIAMRPS", "TAIR", "CUS
 	elsif ( $dataname =~ /^(CAZY|PFAM_TIGR)$/ ) {
 		my $datafile;
 		if ( $dataname eq "CAZY" ) {
-			$datafile = "$outpath/output_repository/hmmpfam/$pipeid" . "_cazy/hmmpfam.htab.list";
+			$datafile = "$outpath/hmm3cazy_results/hmmpfam.htab.list";
 		}
 		elsif ( $dataname eq "PFAM_TIGR" ) {
-			$datafile = "$outpath/output_repository/hmmpfam/$pipeid" . "_pfam_tigr/hmmpfam.htab.list";
+			$datafile = "$outpath/hmm3pfam_results/hmmpfam.htab.list";
 		}
 		if ( -e $datafile ) {
 			print "$dataname: loading $datafile\n";
@@ -168,7 +168,7 @@ for my $dataname ( "TRNPRO", "QRYSEQ", "UNIREF", "CDD", "PRIAMRPS", "TAIR", "CUS
 		}
 	}
 	elsif ( $dataname eq "PRIAMEC" ) {
-		my $datafile = "$outpath/output_repository/priam_ec_assignment/$pipeid" . "_priamec/priam_ec_assignment.bsml.list";
+		my $datafile = "$outpath/priam_ec_results/priam_ec_assignment.bsml.list";
 		if ( -e $datafile ) {
 			print "$dataname: loading $datafile\n";
 			my $tmpprm = "$workspace/tmpec";
@@ -209,7 +209,7 @@ for my $dataname ( "TRNPRO", "QRYSEQ", "UNIREF", "CDD", "PRIAMRPS", "TAIR", "CUS
 		}
 	}
 	elsif ( $dataname eq "TMHMM" ) {
-		my $datafile = "$outpath/output_repository/tmhmm/$pipeid" . "_tm/tmhmm.raw.list";
+		my $datafile = "$outpath/tmhmm_results/tmhmm.raw.list";
 		if ( -e $datafile ) {
 			print "$dataname: loading $datafile\n";
 			my $tmptm = "$workspace/tmptm";
