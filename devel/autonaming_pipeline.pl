@@ -132,9 +132,10 @@ foreach my $dir (@order) {
 }
 close RES_LIST;
 
-#print "Running RULES service...\n";
-#&print_time("RULES STARTTIME");
-#mkdir "$dirs{RULES}";
+print "Running autonaming service...\n";
+&print_time("autonaming STARTTIME");
+my $auto_results = "$results_path/autonaming_results";
+mkdir $auto_results;
 #my $cmd = $EXECS{RULES} . " -infile $results_list -results_path $dirs{RULES} -project_code $grid_code";
 #if ($queue) {
 #	$cmd .= " -queue $queue";

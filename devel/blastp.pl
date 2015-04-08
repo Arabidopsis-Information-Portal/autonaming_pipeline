@@ -171,24 +171,27 @@ foreach my $file (@files2) {
 			}
 		}
 	}
-	$results_hash{$dir} = \@results_files;
-
-	my $blast_cmd = "$run_blast $file ${uniref}p_" . '$SGE_TASK_ID.fasta' . " $dir/p_" . '$SGE_TASK_ID.results.xml'; 
-
-	if ($config) {
-		$blast_cmd .= " $config";
-	}
-	if ($service) {
-		$blast_cmd .= " $service";
-	}
-
-	print "$blast_cmd\n";
-
-	my $sh_script = write_shell_script($dir,$program,$blast_cmd);
 	
-	unless ($skip_blast) {
-		my $job_id = launch_grid_job( $sh_script, $queue, $max_job_array, $dir, $grid_code);
-		push @JOBS, $job_id;
+	$results_hash{$dir} = \@results_files;
+	
+	if ($max_job_array > 0) {
+		my $blast_cmd = "$run_blast $file ${uniref}p_" . '$SGE_TASK_ID.fasta' . " $dir/p_" . '$SGE_TASK_ID.results.xml'; 
+	
+		if ($config) {
+			$blast_cmd .= " $config";
+		}
+		if ($service) {
+			$blast_cmd .= " $service";
+		}
+
+		print "$blast_cmd\n";
+
+		my $sh_script = write_shell_script($dir,$program,$blast_cmd);
+	
+		unless ($skip_blast) {
+			my $job_id = launch_grid_job( $sh_script, $queue, $max_job_array, $dir, $grid_code);
+			push @JOBS, $job_id;
+		}
 	}
 }
 
