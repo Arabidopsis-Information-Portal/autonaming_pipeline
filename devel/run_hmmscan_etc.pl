@@ -31,12 +31,12 @@ my $hmm3 = "/usr/local/packages/hmmer-3.0/bin/hmmscan";
 my $htab = "$FindBin::Bin/htab.pl";
 my $cazyhtab = "$FindBin::Bin/hmmpfam2htab.pl";
 my $htabdb;
-if ($snapshot_dir =~ /.*db$/) {
-	$htabdb = $snapshot_dir;
-	my @path = split /\//, $snapshot_dir;
-	my $last = pop @path;
-	$snapshot_dir =~ s/$last//;
-} else {
+unless ($snapshot_dir =~ /.*db$/) {
+#	$htabdb = $snapshot_dir;
+#	my @path = split /\//, $snapshot_dir;
+#	my $last = pop @path;
+#	$snapshot_dir =~ s/$last//;
+#} else {
 	$htabdb = "$snapshot_dir/hmm3.db";
 }
 my $parser = "$FindBin::Bin/camera_parse_annotation_results_to_text_table.pl";
@@ -53,7 +53,7 @@ my $htab_file = "$outfile.htab";
 my $htab_cmd;
 
 if ($hmmdb =~ /CAZY/) {
-	$htab_cmd = "$cazyhtab --in_file $outfile --mldb_file $htabdb --output_htab $htab_file";
+	$htab_cmd = "$cazyhtab --input_file $outfile --mldbm_file $htabdb --output_htab $htab_file";
 } else {
 	$htab_cmd = "cat $outfile | $htab -d $htabdb > $htab_file";
 }
