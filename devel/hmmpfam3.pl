@@ -161,6 +161,6 @@ wait_for_grid_jobs_arrays( \@JOBS,1,$max_job_array ) if ( scalar @JOBS );
 print "All jobs complete.\n";
 
 my $htab_list =  "$results_path/hmmpfam.htab.list";
-&cat_files($htab_list, \@htab_files);
+&write_list_file($htab_list, \@htab_files);
 
 print "Wrote htab results list to $htab_list.\n";
