@@ -151,7 +151,7 @@ print "Done converting to btab and collating results\n";
 
 my $btab_list = "$results_path/ncbi-blastp.btab.list";
 
-&write_list_file(\@btab_files, $btab_list);
+&write_list_file($btab_list,\@btab_files);
 
 print "Done processing btab files.\n";
 
