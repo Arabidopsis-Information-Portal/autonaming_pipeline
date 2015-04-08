@@ -123,16 +123,16 @@ if ($cfg->val($service, 'blast_db')) {
 @files = &read_list_file($list);
 
 print "Converting to btab.\n";
-my @parsed_files;
-my @taxa_files;
-my @tax_anno_files;
+my @btab_files;
+#my @taxa_files;
+#my @tax_anno_files;
 my @SINGLES;
 foreach my $dir (@files) {
 	my $sort_prog = "uniref_merge_and_parse.pl";
 	my $sorted_file = "$dir/sorted_uniref_results.btab";
-	my $parsed_file = "$dir/sorted_uniref_results.btab.parsed";
-	my $perc_id_file = "$sorted_file.perc_id";
-	my $taxa_id_file = "$perc_id_file.taxa_id";
+#	my $parsed_file = "$dir/sorted_uniref_results.btab.parsed";
+#	my $perc_id_file = "$sorted_file.perc_id";
+#	my $taxa_id_file = "$perc_id_file.taxa_id";
 	my $taxa_file = "$dir/taxa_summary.tsv";
 	my $sort_cmd = "$merge_and_parse $sorted_file $dir $snapshot_dir";
 	if ($config) {
@@ -147,35 +147,19 @@ foreach my $dir (@files) {
 	my $job_id = launch_grid_job( $sh_script, $queue, 1, $dir, $grid_code);
 	push @SINGLES, $job_id;
 
-	push @parsed_files, $parsed_file;
-	push @taxa_files, $taxa_file;
-	push @tax_anno_files, $taxa_id_file;
+	push @btab_files, $sorted_file;
+#	push @taxa_files, $taxa_file;
+#	push @tax_anno_files, $taxa_id_file;
 }
 print "waiting for grid jobs...\n";
 wait_for_grid_jobs_arrays( \@SINGLES,1,1 ) if ( scalar @SINGLES );
 
-print "Done converting to btab and parsing\n";
+print "Done converting to btab and collating results\n";
 
-my $final_btab = "$results_path/uniref_blastp_btab.combined.out.parsed";
-&cat_files(\@parsed_files, $final_btab);
+my $btab_list = "$results_path/ncbi-blastp.btab.list";
 
-#my $final_taxa = "$results_path/sample_taxa_summary.tsv";
-#&cat_files(\@taxa_files, $final_taxa);
+&cat_files(\@btab_files, $btab_list);
 
-#my $final_tax_anno = "$results_path/sample_annotation_summary.tsv";
-#&cat_files(\@tax_anno_files, $final_tax_anno);
+print "Done processing btab files.\n";
 
-print "Done merging all parsed btab files.\n";
-
-#print "Generating annotation and taxa summary tables.\n";
-
-#my $cmd = "$pro_taxa $final_taxa $results_path $config $tag";
-#print "$cmd\n";
-#system $cmd;
-
-#my $cmd = "$pro_anno $final_tax_anno $results_path $config $tag";
-#print "$cmd\n";
-#system $cmd;
-
-#print "Done generating annotation and taxa summary tables.\n";
 &print_time("ENDTIME");
