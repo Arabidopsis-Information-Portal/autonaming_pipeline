@@ -51,10 +51,9 @@ print "$tmhmm2bsml_cmd\n";
 my $program = &get_file_name($tmhmm2bsml);
 &run_shell_script($tmhmm2bsml_cmd,$shell_template,$program,$results_path);
 
-my $parsed_file = &run_parser_script($shell_template,$results_path,$outfile,$parser,$results_path,$input_type);
-
-my $sed_cmd = "sed 's/__\t/_+\t/' $parsed_file -i";
-print "$sed_cmd\n";
-system($sed_cmd);
+#my $parsed_file = &run_parser_script($shell_template,$results_path,$outfile,$parser,$results_path,$input_type);
+#my $sed_cmd = "sed 's/__\t/_+\t/' $parsed_file -i";
+#print "$sed_cmd\n";
+#system($sed_cmd);
 
 &print_time("ENDTIME");

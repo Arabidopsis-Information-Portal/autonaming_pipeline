@@ -114,8 +114,7 @@ foreach my $file (@files2) {
 	my $raw_file = "$dir/tmhmm_results.$in_name.raw";
 	my $outfile = "$dir/tmhmm_results.$in_name.bsml";
 
-	my $parsed_file = $outfile . ".parsed";
-	push @results_files, $parsed_file;
+	push @results_files, $raw_file;
 }
 
 my @JOBS;
@@ -141,6 +140,8 @@ wait_for_grid_jobs_arrays( \@JOBS,1,$max_job_array ) if ( scalar @JOBS );
 
 print "All jobs complete.\n";
 
-my $combined = "$results_path/tmhmm_combined_results.parsed";
-my $cat = "cat @results_files > $combined";
-system "$cat";
+my $combined = "$results_path/tmhmm.raw.list";
+&write_list_file($combined, \@results_files);
+
+#my $cat = "cat @results_files > $combined";
+#system "$cat";
