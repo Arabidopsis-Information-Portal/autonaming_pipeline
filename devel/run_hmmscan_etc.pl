@@ -31,12 +31,9 @@ my $hmm3 = "/usr/local/packages/hmmer-3.0/bin/hmmscan";
 my $htab = "$FindBin::Bin/htab.pl";
 my $cazyhtab = "$FindBin::Bin/hmmpfam2htab.pl";
 my $htabdb;
-unless ($snapshot_dir =~ /.*db$/) {
-#	$htabdb = $snapshot_dir;
-#	my @path = split /\//, $snapshot_dir;
-#	my $last = pop @path;
-#	$snapshot_dir =~ s/$last//;
-#} else {
+if ($snapshot_dir =~ /.*db$/) {
+	$htabdb = $snapshot_dir;
+} else {
 	$htabdb = "$snapshot_dir/hmm3.db";
 }
 my $parser = "$FindBin::Bin/camera_parse_annotation_results_to_text_table.pl";
