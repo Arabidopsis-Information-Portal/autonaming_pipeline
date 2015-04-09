@@ -143,5 +143,4 @@ print "All jobs complete.\n";
 my $combined = "$results_path/tmhmm.raw.list";
 &write_list_file($combined, \@results_files);
 
-#my $cat = "cat @results_files > $combined";
-#system "$cat";
+print "Wrote $service results list to $combined.\n";
