@@ -58,6 +58,10 @@ Specifies a config file (ini format) used to overide standard pipeline configura
 =for Euclid:
 	project_tag.type: string
 	
+=item [-]-skip_evidence
+
+flag that allows user to skip evidence gathering phase and jump right to autonaming steps.
+   	
 =back
 
 =head1 DESCRIPTION
@@ -80,6 +84,7 @@ my $queue = $ARGV_queue;
 my $config = $ARGV_config;
 my $grid_code = $ARGV_project_code;
 my $tag = $ARGV_project_tag;
+my $skip_evidence = $ARGV_skip_evidence;
 
 my $services_config = "$FindBin::Bin/etc/services.config";
 my %EXECS = get_services($services_config, $results_path);
@@ -101,49 +106,53 @@ foreach my $prog (keys %EXECS) {
 	print "$prog\t$EXECS{$prog}->{'cmd'}\n";
 }
 
-my $results_list = "$results_path/evidence_service_results.list";
-open (RES_LIST, ">$results_list") || die "cannot open $results_list. $!\n"; 
-foreach my $dir (@order) {
-	print "Running $dir service...\n";
-	&print_time("$dir STARTTIME");
-	mkdir "$EXECS{$dir}->{'dir'}";
-	my $cmd = $EXECS{$dir}->{'cmd'} . " -infile $list -results_path $EXECS{$dir}->{'dir'} -project_code $grid_code -service $dir";
-	if ($queue) {
-		$cmd .= " -queue $queue";
-	}
-	if ($config) {
-		$cmd .= " -config $config";
-	}
-	if ($tag && $dir eq "UNIREF") {
-		$cmd .= " -project_tag $tag";
-	}
+if ($skip_evidence) {
+	print "Skipping evidence gathering services...\n";
+} else {
+	my $results_list = "$results_path/evidence_service_results.list";
+	open (RES_LIST, ">$results_list") || die "cannot open $results_list. $!\n"; 
+	foreach my $dir (@order) {
+		print "Running $dir service...\n";
+		&print_time("$dir STARTTIME");
+		mkdir "$EXECS{$dir}->{'dir'}";
+		my $cmd = $EXECS{$dir}->{'cmd'} . " -infile $list -results_path $EXECS{$dir}->{'dir'} -project_code $grid_code -service $dir";
+		if ($queue) {
+			$cmd .= " -queue $queue";
+		}
+		if ($config) {
+			$cmd .= " -config $config";
+		}
+		if ($tag && $dir eq "UNIREF") {
+			$cmd .= " -project_tag $tag";
+		}
 
-	print "$cmd\n";
-	system $cmd;
+		print "$cmd\n";
+		system $cmd;
 
-	my @list = `ls $EXECS{$dir}->{'dir'}/*.list`;
-	foreach my $item (@list) {
-		chomp $item;
-		print RES_LIST "\n";
+		my @list = `ls $EXECS{$dir}->{'dir'}/*.list`;
+		foreach my $item (@list) {
+			chomp $item;
+			print RES_LIST "\n";
+		}
+	
+		&print_time("$dir ENDTIME");
+		print "Done with $dir service.\n";
 	}
-
-	&print_time("$dir ENDTIME");
-	print "Done with $dir service.\n";
+	close RES_LIST;
 }
-close RES_LIST;
 
 print "Running autonaming service...\n";
 &print_time("autonaming STARTTIME");
-my $auto_results = "$results_path/autonaming_results";
+my $auto_results = "$EXECS{'autonaming'}->{dir}";
 mkdir $auto_results;
-#my $cmd = $EXECS{RULES} . " -infile $results_list -results_path $dirs{RULES} -project_code $grid_code";
-#if ($queue) {
-#	$cmd .= " -queue $queue";
-#}
-#if ($config) {
-#	$cmd .= " -config $config";
-#}
-#print "$cmd\n";
-#system $cmd;
-#&print_time("RULES ENDTIME");
-#print "Done with RULES service.\n";
+my $cmd = $EXECS{'autonaming'}->{'cmd'} . " -evidence_location $results_path -results_path $auto_results -project_code $grid_code -service autonaming";
+if ($queue) {
+	$cmd .= " -queue $queue";
+}
+if ($config) {
+	$cmd .= " -config $config";
+}
+print "$cmd\n";
+system $cmd;
+&print_time("autonaming ENDTIME");
+print "Done with autonaming service.\n";
