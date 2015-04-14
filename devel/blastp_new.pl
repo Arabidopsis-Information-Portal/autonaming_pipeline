@@ -179,7 +179,7 @@ foreach my $file (@files2) {
 
 unless ($skip_blast) {
 	print "waiting for arrays...\n";
-	wait_for_grid_jobs_arrays( \@SINGLES,1,1 ) if ( scalar @SINGLES );
+	wait_for_grid_jobs_arrays( \@JOBS,1,1 ) if ( scalar @JOBS );
 
 	print "All jobs complete.\n";
 }
