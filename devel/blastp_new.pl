@@ -170,8 +170,12 @@ foreach my $file (@files2) {
 	print "$sh_script\n";
 	
 	unless ($skip_blast) {
-		my $job_id = launch_grid_job( $sh_script, $queue, $max_job_array, $dir, $grid_code);
-		push @JOBS, $job_id;
+		if ($max_job_array > 0) {
+			my $job_id = launch_grid_job( $sh_script, $queue, $max_job_array, $dir, $grid_code);
+			push @JOBS, $job_id;
+		} else {
+			die "No database partitions found in $uniref.\n"
+		}
 	}
 
 	$results_hash{$dir} = \@results_files;	
@@ -179,7 +183,7 @@ foreach my $file (@files2) {
 
 unless ($skip_blast) {
 	print "waiting for arrays...\n";
-	wait_for_grid_jobs_arrays( \@JOBS,1,1 ) if ( scalar @JOBS );
+	wait_for_grid_jobs_arrays( \@JOBS,1,$max_job_array ) if ( scalar @JOBS );
 
 	print "All jobs complete.\n";
 }
