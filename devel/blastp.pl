@@ -109,12 +109,16 @@ my $run_blast = "$FindBin::Bin/run_blast_etc.pl";
 my $uniref_annotation = "$FindBin::Bin/uniref_annotation_processing.pl";
 
 my $snapshot_dir;
+my $fasta_size = 10000;
 my $uniref;
 if ($cfg->val($service, 'snapshot_dir')) {
 	$snapshot_dir = $cfg->val($service, 'snapshot_dir');
 }
 if ($cfg->val($service, 'blast_db')) {
 	$uniref = $cfg->val($service, 'blast_db');
+} 
+if ($cfg->val($service, 'fasta_size')) {
+	$fasta_size = $cfg->val($service, 'fasta_size');
 } 
 
 my @partitions = <${uniref}*.fasta.*>;
@@ -131,7 +135,7 @@ my @blast_partitions = &clean_blast_partitions(\@partitions);
 my $fasta_file =  "$results_path/all.fasta";
 system "cat @files > $fasta_file";
 
-my $cmd = "$fasta_split $fasta_file $results_path 10000 no no";
+my $cmd = "$fasta_split $fasta_file $results_path $fasta_size no no";
 print "$cmd\n";
 system $cmd;
 
