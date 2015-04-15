@@ -147,9 +147,9 @@ my $max_job_array;
 my @SINGLES;
 my @JOBS;
 my %results_hash;
-my $count = 1;
 foreach my $file (@files2) {
 	my @results_files;
+	my $count = 1;
 	$max_job_array = @blast_partitions;
 	my @path = split '/', $file;
 	my $q_file = pop @path;
