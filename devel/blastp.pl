@@ -112,16 +112,20 @@ my $snapshot_dir;
 my $uniref;
 if ($cfg->val($service, 'snapshot_dir')) {
 	$snapshot_dir = $cfg->val($service, 'snapshot_dir');
-} else {
-#	$snapshot_dir = "/usr/local/projects/DB/MGX/mgx-prok-annotation/20101221";
 }
 if ($cfg->val($service, 'blast_db')) {
 	$uniref = $cfg->val($service, 'blast_db');
-} else {
-#	$uniref = "/usr/local/projects/CAMERA/runtime-shared/filestore/system/BlastDatabases/1550565668133273887/";
+} 
+
+my @partitions = <${uniref}*.fasta.*>;
+
+if (@partitions < 1) {
+	@partitions = <${uniref}p*.fasta>;
 }
 
-my @blast_partitions = <${uniref}p*.fasta>;
+print "@partitions\n";
+
+my @blast_partitions = &clean_blast_partitions(\@partitions);
 
 @files = &read_list_file($list);
 my $fasta_file =  "$results_path/all.fasta";
@@ -139,6 +143,7 @@ my $max_job_array;
 my @SINGLES;
 my @JOBS;
 my %results_hash;
+my $count = 1;
 foreach my $file (@files2) {
 	my @results_files;
 	$max_job_array = @blast_partitions;
@@ -152,52 +157,37 @@ foreach my $file (@files2) {
 		$db_name =~ s/.fasta//;
 		my $results_file = $dir . "/$db_name.results.xml";
 		push @results_files, $results_file;
-		if ($partition_file =~ /p_0.fasta/) {
-			my $blast_cmd = "$run_blast $file $partition_file $dir/$db_name.results.xml"; 
-			if ($config) {
-				$blast_cmd .= " $config";
-			}
-			if ($service) {
-				$blast_cmd .= " $service";
-			}
-			
-			print "$blast_cmd\n";
-			$max_job_array -= 1;
-			my $sh_script = write_shell_script($dir,"${program}_$db_name",$blast_cmd);
-			
-			unless ($skip_blast) {
-				my $job_id = launch_grid_job( $sh_script, $queue, 1, $dir, $grid_code);
-				push @SINGLES, $job_id;
-			}
-		}
-	}
-	
-	$results_hash{$dir} = \@results_files;
-	
-	if ($max_job_array > 0) {
-		my $blast_cmd = "$run_blast $file ${uniref}p_" . '$SGE_TASK_ID.fasta' . " $dir/p_" . '$SGE_TASK_ID.results.xml'; 
-	
+		my $blast_cmd = "$run_blast $file $partition_file $dir/$db_name.results.xml"; 
 		if ($config) {
 			$blast_cmd .= " $config";
 		}
 		if ($service) {
 			$blast_cmd .= " $service";
 		}
-
+		
 		print "$blast_cmd\n";
-
-		my $sh_script = write_shell_script($dir,$program,$blast_cmd);
+		my $shell_name = "${program}_$count";
+		my $sh_script = write_shell_script($dir,$shell_name,$blast_cmd);
+		$count ++;
+	}
+	my $master_name = "$program";
+	my $shell_cmd = "/bin/sh $dir/${program}_" . '${SGE_TASK_ID}' . "_grid.sh";
+	my $sh_script = write_shell_script($dir,$master_name,$shell_cmd);
+	print "$sh_script\n";
 	
-		unless ($skip_blast) {
+	unless ($skip_blast) {
+		if ($max_job_array > 0) {
 			my $job_id = launch_grid_job( $sh_script, $queue, $max_job_array, $dir, $grid_code);
 			push @JOBS, $job_id;
+		} else {
+			die "No database partitions found in $uniref.\n"
 		}
 	}
+
+	$results_hash{$dir} = \@results_files;	
 }
 
 unless ($skip_blast) {
-	print "waiting for singles...\n";
-	wait_for_grid_jobs_arrays( \@SINGLES,1,1 ) if ( scalar @SINGLES );
 	print "waiting for arrays...\n";
 	wait_for_grid_jobs_arrays( \@JOBS,1,$max_job_array ) if ( scalar @JOBS );
 
@@ -228,3 +218,28 @@ print "$anno_cmd\n";
 system $anno_cmd;
 
 print "Done processing Uniref annotations.\n";
+
+## SUBS  ##
+
+sub clean_blast_partitions {
+	my $files = shift;
+	my @clean_files;
+	my %seen;
+	
+	foreach my $file (@$files) {
+		$file =~ s/\.[A-Za-z]*$//;
+		if ($file =~ /\.[0-9]*$/) {
+			unless ($seen{$file}) {
+				print "$file\n";
+				push @clean_files, $file;
+			}
+		} elsif ($file =~ /p_[0-9]*\.fasta/) {
+			unless ($seen{$file}) {
+				print "$file\n";
+				push @clean_files, $file;
+			}
+		}
+		$seen{$file} ++;
+	}
+	return @clean_files;
+}
