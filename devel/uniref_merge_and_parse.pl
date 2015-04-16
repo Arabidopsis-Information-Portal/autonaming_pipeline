@@ -34,7 +34,6 @@ if ($cfg->val($service, 'max_hits')) {
 
 my $btab_sort = "/usr/local/devel/VIRIFX/software/Staging/Elvira/bin/mergeAndSortBlastXml2Btab";
 my $parser = "$FindBin::Bin/camera_parse_annotation_results_to_text_table.pl";
-#my $estimate = "$FindBin::Bin/run_estimate_taxa.pl";
 my $shell_config = "$FindBin::Bin/etc/shell.config";
 my $shell_template = &write_shell_template($shell_config,$path,$results_path);
 
@@ -46,15 +45,6 @@ my $sorted_file = "$results_path/sorted_uniref_results.btab";
 my $sort_cmd = "$btab_sort -in $results_path -out $sorted_file -max_hits $max_hits";
 print "$sort_cmd\n";
 system $sort_cmd;
-
-#my $parsed_file = &run_parser_script($shell_template,$results_path,$sorted_file,$parser,$snapshot_dir,$input_type);
-
-#my $est_cmd = "$estimate $file $results_path $snapshot_dir";
-#if ($config) {
-#	$est_cmd .= " $config";
-#}
-#print "$est_cmd\n";
-#system $est_cmd;
 
 my @xmls = <$results_path/*.xml>;
 foreach my $xml_file (@xmls) {
