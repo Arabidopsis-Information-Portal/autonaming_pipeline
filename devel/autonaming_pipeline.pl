@@ -112,6 +112,9 @@ if ($skip_evidence) {
 	my $results_list = "$results_path/evidence_service_results.list";
 	open (RES_LIST, ">$results_list") || die "cannot open $results_list. $!\n"; 
 	foreach my $dir (@order) {
+		if ($dir eq 'autonaming') {
+			next;
+		}
 		print "Running $dir service...\n";
 		&print_time("$dir STARTTIME");
 		mkdir "$EXECS{$dir}->{'dir'}";

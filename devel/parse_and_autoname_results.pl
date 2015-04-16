@@ -99,6 +99,16 @@ my @prog = split '/', $program_path;
 my $program = pop @prog;
 my @files;
 
+my $cfg;
+if ($config) {
+	$cfg = Config::IniFiles->new( -file => "$config" ) || die "cannot parse user suplied config file.\n";
+}
+
+my $exclude_taxa;
+if ($cfg->val($service, 'exclude_taxa')) {
+	$exclude_taxa = $cfg->val($service, 'exclude_taxa');
+}
+
 my $makedb = "$FindBin::Bin/makeDB.pl";
 my $common_names = "$FindBin::Bin/common_names.pl";
 
@@ -109,6 +119,9 @@ print "$make_cmd\n";
 system($make_cmd);
 
 my $auto_cmd = "$common_names -d $dbname -o $results_path -verbose";
+if ($exclude_taxa) {
+	$auto_cmd .= " -xt $exclude_taxa";
+}
 print "$auto_cmd\n";
 my $output = `$auto_cmd`;
 
