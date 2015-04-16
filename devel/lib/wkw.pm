@@ -21,7 +21,7 @@ sub cross_reference_taxonomy {
 	my $dbg = 0;
 
 	print "constructing taxonomy lookup table\n";
-	my $taxdbh = connectSQLite("/local/devel/ANNOTATION/APIS/pipeline/data/v1/taxondb.db");
+	my $taxdbh = connectSQLite("/usr/local/devel/ANNOTATION/APIS/pipeline/data/v1/taxondb.db");
 	my $tmp = querySQLArrayArray( $dbh, "select distinct subject_definition from btab" );
 	for my $row (@$tmp) {
 		my @defs = split /; >/, $$row[0];
@@ -98,7 +98,7 @@ sub get_excluded_taxons {
 	if ( defined $exclude_taxon_id ) { $exclusions{$exclude_taxon_id} = 1 }
 	
 	if ( defined $excludebranch_taxon_id ) {
-		my $taxdbh = connectSQLite("/local/devel/ANNOTATION/APIS/pipeline/data/v1/taxondb.db");
+		my $taxdbh = connectSQLite("/usr/local/devel/ANNOTATION/APIS/pipeline/data/v1/taxondb.db");
 		my $sql = "select distinct taxon_id from taxonomy_lineage where related_id in ($excludebranch_taxon_id)";
 		my $results = querySQLArrayArray( $taxdbh, $sql );
 		if ( $results ) {
