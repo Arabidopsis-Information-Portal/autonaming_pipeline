@@ -24,6 +24,11 @@ if ($config) {
 }
 my $path = &get_lib_path($cfg,$service);
 
+my $max_hits = 10;
+if ($cfg->val($service, 'max_hits')) {
+	$max_hits = $cfg->val($service, 'max_hits');
+}
+
 #use lib "/usr/local/devel/VIRIFX/software/VGD/lib";
 #use Getopt::Euclid 0.2.4 qw(:vars);
 
@@ -38,7 +43,7 @@ system "$gunzip";
 
 my $sort_prog = "mergeAndSortBlastXml2Btab";
 my $sorted_file = "$results_path/sorted_uniref_results.btab";
-my $sort_cmd = "$btab_sort -in $results_path -out $sorted_file";
+my $sort_cmd = "$btab_sort -in $results_path -out $sorted_file -max_hits $max_hits";
 print "$sort_cmd\n";
 system $sort_cmd;
 
