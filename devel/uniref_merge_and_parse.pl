@@ -42,6 +42,9 @@ system "$gunzip";
 
 my $sort_prog = "mergeAndSortBlastXml2Btab";
 my $sorted_file = "$results_path/sorted_uniref_results.btab";
+if ($service =~ /rpsblast/) {
+	$sorted_file = "$results_path/sorted_rps_results.btab";
+}
 my $sort_cmd = "$btab_sort -in $results_path -out $sorted_file -max_hits $max_hits";
 print "$sort_cmd\n";
 system $sort_cmd;

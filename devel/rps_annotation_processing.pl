@@ -141,7 +141,7 @@ wait_for_grid_jobs_arrays( \@SINGLES,1,1 ) if ( scalar @SINGLES );
 
 print "Done converting to btab and collating results\n";
 
-my $btab_list = "$results_path/ncbi-blastp.btab.list";
+my $btab_list = "$results_path/rpsblast.btab.list";
 
 &write_list_file($btab_list,\@btab_files);
 
