@@ -113,7 +113,11 @@ for my $dataname ( "TRNPRO", "QRYSEQ", "UNIREF", "CDD", "PRIAMRPS", "TAIR", "CUS
 			}
 			do_sql( $database, "delete from btab_tmp;" );
 			do_sql( $database, ".mode tabs\n.import '$tmpbtab' btab_tmp" );
-			do_sql( $database, "update btab_tmp set job_name='$dataname',subject_definition=subject_id||' '||subject_definition;" );
+			if ($dataname eq "UNIREF" ) {
+				do_sql( $database, "update btab_tmp set job_name='$dataname';" );
+			} else {
+				do_sql( $database, "update btab_tmp set job_name='$dataname',subject_definition=subject_id||' '||subject_definition;" );
+			}
 			do_sql( $database, "update btab_tmp set query_left=query_right,query_right=query_left where frame<0;" );
 			if ( $dataname =~ /^(CDD|PRIAMRPS)$/ ) {
 				do_sql( $database, "update btab_tmp set program_name='rpsblast';" );

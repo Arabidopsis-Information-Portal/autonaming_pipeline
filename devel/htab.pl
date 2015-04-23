@@ -2,7 +2,6 @@
 
 use lib "/usr/local/common/mgx-prok-annotation/bin";
 
-use warnings;
 use strict;
 use DBI;
 use Cwd;
