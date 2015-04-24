@@ -131,7 +131,7 @@ foreach my $file (@files2) {
 
 my @JOBS;
 
-my $dir = "$results_path/" . '$SGE_TASK_ID.fasta';
+my $dir = "$results_path/" . 'fasta$SGE_TASK_ID.fasta';
 my $btab = "$dir/priam.btab." . '$SGE_TASK_ID.btab';
 my $fasta = "$dir/" . 'fasta$SGE_TASK_ID.fasta';
 my $bsml = "$dir/priam.btab." . '$SGE_TASK_ID.bsml';
