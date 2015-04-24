@@ -70,6 +70,7 @@ This script will run .
 
 use strict;
 use FindBin;
+use Config::IniFiles;
 require "$FindBin::Bin/pipeline_lib.pl";
 
 use lib "/usr/local/devel/VIRIFX/software/VGD/lib";
@@ -88,37 +89,53 @@ my $program = pop @prog;
 my @files;
 
 my $fasta_split = "$FindBin::Bin/fasta_splitter.pl";
-my $run_tmhmm = "$FindBin::Bin/run_priamec_etc.pl";
+my $run_priamec = "$FindBin::Bin/run_priamec_etc.pl";
 
-@files = &read_list_file($list);
+my $cfg;
+if ($config) {
+	$cfg = Config::IniFiles->new( -file => "$config" ) || die "cannot parse user suplied config file.\n";
+}
+my $rules;
+if ($cfg->val($service, 'rules_xml')) {
+	$rules = $cfg->val($service, 'rules_xml');
+} 
 
-my $fasta_file =  "$results_path/all.fasta";
-system "cat @files > $fasta_file";
+my @path = split /\//, $results_path;
+pop @path;
+my $rpsblast_dir =  join('/',@path) . "/priamrps_results";
+my $rpsblast_list = "$rpsblast_dir/rpsblast.btab.list";
 
-my $cmd = "$fasta_split $fasta_file $results_path 10000 no";
-print "$cmd\n";
-system $cmd;
-my $list2 = "$results_path/partitions.list";
-
-my @files2 = &read_list_file($list2);
+my @files2 = &read_list_file($rpsblast_list);
 
 my @results_files;
 foreach my $file (@files2) {
-	my $in_name = &get_file_name($file);
-	$in_name =~ s/.fasta//;
-	my $dir = "$results_path/partitions/$in_name";
-	my $raw_file = "$dir/priamec_results.$in_name.raw";
-	my $outfile = "$dir/priamec_results.$in_name.bsml";
+	my $dir = "$results_path/";
+	my @path = split /\//, $file;
+	pop @path;
+	my $fasta = pop @path;
+	$fasta =~ s/\.fasta//;
+	my $count = $fasta;
+	$count =~ s/fasta//;
+	my $fasta_file = "$rpsblast_dir/partitions/$fasta/$fasta.fasta";
+	my $new_fasta = "$dir/$fasta.fasta";
+	my $btab_file = "$dir/priamrps.btab.$count.btab";
+	system ("cp $file $btab_file");
+	system ("cp $fasta_file $new_fasta");
+	my $btab_bsml_file = "$dir/priamrps.btab.$count.bsml";
+	my $outfile = "$dir/priamec_results.$count.bsml";
 
-	push @results_files, $raw_file;
+	push @results_files, $outfile;
 }
 
 my @JOBS;
 
-my $dir = "$results_path/partitions/fasta" . '$SGE_TASK_ID';
-my $file = "$dir/fasta" . '$SGE_TASK_ID.fasta';
+my $dir = "$results_path/";
+my $btab = "$dir/priam.btab." . '$SGE_TASK_ID.btab';
+my $fasta = "$dir/fasta" . '$SGE_TASK_ID.fasta';
+my $bsml = "$dir/priam.btab." . '$SGE_TASK_ID.bsml';
+my $outfile = "$dir/priamec_results." . '$SGE_TASK_ID.bsml';
 
-my $run_cmd = "$run_tmhmm $file $dir";
+my $run_cmd = "$run_priamec $dir $btab $fasta $bsml $outfile $rules";
 if ($config) {
 	$run_cmd .= " $config";
 }
@@ -128,15 +145,15 @@ my $sh_script = write_shell_script($results_path,"${program}",$run_cmd);
 
 my $max_job_array = @files2;
 
-my $job_id = launch_grid_job( $sh_script, $queue, $max_job_array, $results_path, $grid_code);
-push @JOBS, $job_id;
+#my $job_id = launch_grid_job( $sh_script, $queue, $max_job_array, $results_path, $grid_code);
+#push @JOBS, $job_id;
 
-print "waiting for jobs...\n";
-wait_for_grid_jobs_arrays( \@JOBS,1,$max_job_array ) if ( scalar @JOBS );
+#print "waiting for jobs...\n";
+#wait_for_grid_jobs_arrays( \@JOBS,1,$max_job_array ) if ( scalar @JOBS );
 
 print "All jobs complete.\n";
 
-my $combined = "$results_path/tmhmm.raw.list";
+my $combined = "$results_path/priam_ec_assignment.bsml.list";
 &write_list_file($combined, \@results_files);
 
 print "Wrote $service results list to $combined.\n";

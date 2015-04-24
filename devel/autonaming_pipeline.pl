@@ -143,19 +143,20 @@ if ($skip_evidence) {
 	}
 	close RES_LIST;
 }
-
-print "Running autonaming service...\n";
-&print_time("autonaming STARTTIME");
-my $auto_results = "$EXECS{'autonaming'}->{dir}";
-mkdir $auto_results;
-my $cmd = $EXECS{'autonaming'}->{'cmd'} . " -evidence_location $results_path -results_path $auto_results -project_code $grid_code -service autonaming";
-if ($queue) {
-	$cmd .= " -queue $queue";
+if ($cfg->SectionExists("autonaming")) {
+	print "Running autonaming service...\n";
+	&print_time("autonaming STARTTIME");
+	my $auto_results = "$EXECS{'autonaming'}->{dir}";
+	mkdir $auto_results;
+	my $cmd = $EXECS{'autonaming'}->{'cmd'} . " -evidence_location $results_path -results_path $auto_results -project_code $grid_code -service autonaming";
+	if ($queue) {
+		$cmd .= " -queue $queue";
+	}
+	if ($config) {
+		$cmd .= " -config $config";
+	}
+	print "$cmd\n";
+	system $cmd;
+	&print_time("autonaming ENDTIME");
+	print "Done with autonaming service.\n";
 }
-if ($config) {
-	$cmd .= " -config $config";
-}
-print "$cmd\n";
-system $cmd;
-&print_time("autonaming ENDTIME");
-print "Done with autonaming service.\n";

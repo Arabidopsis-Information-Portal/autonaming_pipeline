@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/local/bin/perl
 
 =head1 NAME
 
@@ -53,16 +53,19 @@ B<--help,-h>
 =cut
 
 use strict;
-use warnings;
-use Getopt::Long qw(:config no_ignore_case no_auto_abbrev pass_through);
-use MLDBM 'DB_File';
+#use warnings;
 use Pod::Usage;
-use Ergatis::Logger;
 use XML::Twig;
-use File::OpenFile qw(open_file);
-use BSML::BsmlBuilder;
 use Data::Dumper;
+use Getopt::Long qw(:config no_ignore_case no_auto_abbrev pass_through);
+#use lib "/usr/local/packages/perl-5.16.1/lib/5.16.1/";
 use XML::Simple;
+use lib "/usr/local/devel/ANNOTATION/Ergatis/jcvi/branches/jcvi-ergatis-v2r13/lib/";
+use Ergatis::Logger;
+use File::OpenFile qw(open_file);
+use MLDBM 'DB_File';
+use lib "/usr/local/devel/ANNOTATION/jinman/caries_microbiome_pipeline/lib/";
+use BSML::BsmlBuilder;
 
 ## globals #####
 my $logger;
