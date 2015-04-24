@@ -132,9 +132,9 @@ foreach my $file (@files2) {
 my @JOBS;
 
 my $dir = "$results_path/" . 'fasta$SGE_TASK_ID.fasta';
-my $btab = "$dir/priam.btab." . '$SGE_TASK_ID.btab';
+my $btab = "$dir/priamrps.btab." . '$SGE_TASK_ID.btab';
 my $fasta = "$dir/" . 'fasta$SGE_TASK_ID.fasta';
-my $bsml = "$dir/priam.btab." . '$SGE_TASK_ID.bsml';
+my $bsml = "$dir/priamrps.btab." . '$SGE_TASK_ID.bsml';
 my $outfile = "$dir/priamec_results." . '$SGE_TASK_ID.bsml';
 
 my $run_cmd = "$run_priamec $dir $btab $fasta $bsml $outfile $rules";
