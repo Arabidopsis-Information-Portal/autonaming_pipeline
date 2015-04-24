@@ -172,7 +172,7 @@ for my $dataname ( "TRNPRO", "QRYSEQ", "UNIREF", "CDD", "PRIAMRPS", "TAIR", "CUS
 		}
 	}
 	elsif ( $dataname eq "PRIAMEC" ) {
-		my $datafile = "$outpath/priam_ec_results/priam_ec_assignment.bsml.list";
+		my $datafile = "$outpath/priamec_results/priam_ec_assignment.bsml.list";
 		if ( -e $datafile ) {
 			print "$dataname: loading $datafile\n";
 			my $tmpprm = "$workspace/tmpec";
