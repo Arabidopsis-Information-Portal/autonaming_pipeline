@@ -117,21 +117,23 @@ foreach my $file (@files2) {
 	my $count = $fasta;
 	$count =~ s/fasta//;
 	my $fasta_file = "$rpsblast_dir/partitions/$fasta/$fasta.fasta";
-	my $new_fasta = "$dir/$fasta.fasta";
-	my $btab_file = "$dir/priamrps.btab.$count.btab";
+	my $fasta_dir = "$dir/$fasta.fasta";
+	my $new_fasta = "$fasta_dir/$fasta.fasta";
+	mkdir $fasta_dir;
+	my $btab_file = "$fasta_dir/priamrps.btab.$count.btab";
 	system ("cp $file $btab_file");
 	system ("cp $fasta_file $new_fasta");
-	my $btab_bsml_file = "$dir/priamrps.btab.$count.bsml";
-	my $outfile = "$dir/priamec_results.$count.bsml";
+	my $btab_bsml_file = "$fasta_dir/priamrps.btab.$count.bsml";
+	my $outfile = "$fasta_dir/priamec_results.$count.bsml";
 
 	push @results_files, $outfile;
 }
 
 my @JOBS;
 
-my $dir = "$results_path/";
+my $dir = "$results_path/" . '$SGE_TASK_ID.fasta';
 my $btab = "$dir/priam.btab." . '$SGE_TASK_ID.btab';
-my $fasta = "$dir/fasta" . '$SGE_TASK_ID.fasta';
+my $fasta = "$dir/" . 'fasta$SGE_TASK_ID.fasta';
 my $bsml = "$dir/priam.btab." . '$SGE_TASK_ID.bsml';
 my $outfile = "$dir/priamec_results." . '$SGE_TASK_ID.bsml';
 
