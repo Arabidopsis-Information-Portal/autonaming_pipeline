@@ -191,7 +191,7 @@ sub collect_PriamEC_details {
 	# PRIAM profile-EC links
 	for my $line (
 		split /\n/,
-		`grep "<PROFILE " /usr/local/db/priam/05-2011/priam_05_2011.rules.xml`
+		`grep "<PROFILE " /usr/local/db/priam/05-2011/PROFILES/priam_05_2011.rules.xml`
 	  )
 	{
 		if ( $line =~ / ac="([^"]+)" .* ECs="([^"]+)"/ ) {
