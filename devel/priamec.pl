@@ -145,11 +145,11 @@ my $sh_script = write_shell_script($results_path,"${program}",$run_cmd);
 
 my $max_job_array = @files2;
 
-#my $job_id = launch_grid_job( $sh_script, $queue, $max_job_array, $results_path, $grid_code);
-#push @JOBS, $job_id;
+my $job_id = launch_grid_job( $sh_script, $queue, $max_job_array, $results_path, $grid_code);
+push @JOBS, $job_id;
 
-#print "waiting for jobs...\n";
-#wait_for_grid_jobs_arrays( \@JOBS,1,$max_job_array ) if ( scalar @JOBS );
+print "waiting for jobs...\n";
+wait_for_grid_jobs_arrays( \@JOBS,1,$max_job_array ) if ( scalar @JOBS );
 
 print "All jobs complete.\n";
 
