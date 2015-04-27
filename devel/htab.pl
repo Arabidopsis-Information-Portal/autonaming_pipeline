@@ -1,6 +1,6 @@
 #!/usr/local/bin/perl
 
-use lib "/usr/local/common/mgx-prok-annotation/bin";
+#use lib "/usr/local/common/mgx-prok-annotation/bin";
 
 use strict;
 use DBI;
@@ -8,8 +8,9 @@ use Cwd;
 use Getopt::Std;
 use Cwd 'realpath';
 use File::Basename;
+use FindBin;
 
-require "hmm_lib.pl";
+require "$FindBin::Bin/hmm_lib.pl";
 
 my $program = realpath($0);
 my $htabDir = dirname($program);

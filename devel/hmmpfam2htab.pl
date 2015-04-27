@@ -135,7 +135,7 @@ TIGR03007: domain 1 of 1, from 23 to 432: score -337.6, E = 0.54
 =cut
 
 use strict;
-use warnings;
+#use warnings;
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev pass_through);
 use Pod::Usage;
 use MLDBM 'DB_File';

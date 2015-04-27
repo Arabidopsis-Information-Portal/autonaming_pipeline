@@ -42,7 +42,7 @@ my $shell_template = &write_shell_template($shell_config,$path,$results_path);
 
 my $outfile = "$results_path/hmm3_results.out";
 
-my $hmm3_cmd = "$hmm3 --cut_tc -o $outfile $hmmdb $file";
+my $hmm3_cmd = "$hmm3 --cut_nc -o $outfile $hmmdb $file";
 print "$hmm3_cmd\n";
 system($hmm3_cmd);
 
