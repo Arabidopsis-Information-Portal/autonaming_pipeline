@@ -4124,11 +4124,11 @@ sub print_parse_hmm_hit {
                 }
                 if ( $method eq 'hmmsearch' ) {
                     print $output
-					"$query_obj\t$month-$day-$year\t$hmm_len\t$method\t$query_db\t$$seq_r{$m}{header}\t$$seq_r{$m}{$n}{hmm_f}\t$$seq_r{$m}{$n}{hmm_t}\t$$seq_r{$m}{$n}{seq_f}\t$$seq_r{$m}{$n}{seq_t}\t\t$$seq_r{$m}{$n}{score}\t$$seq_r{$m}{score}\t$n\t$$seq_r{$m}{number}\t$hmm_com_name\t$$seq_r{$m}{comment}\t$trusted_cutoff\t$noise_cutoff\t$$seq_r{$m}{e_value}\t$$seq_r{$m}{$n}{e_value}\n";
+					"$query_obj\t$month-$day-$year\t$hmm_len\t$method\t$query_db\t$$seq_r{$m}{header}\t$$seq_r{$m}{$n}{hmm_f}\t$$seq_r{$m}{$n}{hmm_t}\t$$seq_r{$m}{$n}{seq_f}\t$$seq_r{$m}{$n}{seq_t}\t\t$$seq_r{$m}{$n}{score}\t$$seq_r{$m}{score}\t$n\t$$seq_r{$m}{number}\t$hmm_com_name\t$$seq_r{$m}{comment}\t$trusted_cutoff\t$noise_cutoff\t$$seq_r{$m}{e_value}\t$$seq_r{$m}{$n}{e_value}\t\t\t\t\n";
                 }
                 elsif ( $method eq 'hmmpfam' || $method eq 'hmmscan' ) {
                     print $output
-"$$seq_r{$m}{header}\t$month-$day-$year\t$$seq_r{$m}{hmm_len}\t$method\t$query_db\t$query_obj\t$$seq_r{$m}{$n}{hmm_f}\t$$seq_r{$m}{$n}{hmm_t}\t$$seq_r{$m}{$n}{seq_f}\t$$seq_r{$m}{$n}{seq_t}\t\t$$seq_r{$m}{$n}{score}\t$$seq_r{$m}{score}\t$n\t$$seq_r{$m}{number}\t$$seq_r{$m}{comment}\t$prot_desc\t$$seq_r{$m}{trusted_cutoff}\t$$seq_r{$m}{noise_cutoff}\t$$seq_r{$m}{e_value}\t$$seq_r{$m}{$n}{e_value}\n";
+"$$seq_r{$m}{header}\t$month-$day-$year\t$$seq_r{$m}{hmm_len}\t$method\t$query_db\t$query_obj\t$$seq_r{$m}{$n}{hmm_f}\t$$seq_r{$m}{$n}{hmm_t}\t$$seq_r{$m}{$n}{seq_f}\t$$seq_r{$m}{$n}{seq_t}\t\t$$seq_r{$m}{$n}{score}\t$$seq_r{$m}{score}\t$n\t$$seq_r{$m}{number}\t$$seq_r{$m}{comment}\t$prot_desc\t$$seq_r{$m}{trusted_cutoff}\t$$seq_r{$m}{noise_cutoff}\t$$seq_r{$m}{e_value}\t$$seq_r{$m}{$n}{e_value}\t\t\t\t\n";
                 }
             }
         }
