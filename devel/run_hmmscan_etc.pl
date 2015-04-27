@@ -49,7 +49,7 @@ system($hmm3_cmd);
 my $htab_file = "$outfile.htab";
 my $htab_cmd;
 
-if ($hmmdb =~ /CAZY/) {
+if ($snapshot_dir =~ /.*db$/) {
 	$htab_cmd = "$cazyhtab --input_file $outfile --mldbm_file $htabdb --output_htab $htab_file";
 } else {
 	$htab_cmd = "cat $outfile | $htab -d $htabdb > $htab_file";
