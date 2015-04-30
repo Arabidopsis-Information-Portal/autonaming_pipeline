@@ -3663,7 +3663,7 @@ sub parse_hmm_hits {
 
                 # create one line file if there are no hits.
                 if ( $line[ $m + $n + 2 ] =~ /\[no hits above thresholds\]/ ) {
-                    print $output "No hits above thresholds.\n";
+                    #print $output "No hits above thresholds.\n";
                 }
 
             }
@@ -3688,7 +3688,7 @@ sub parse_hmm_hits {
             unless ($multi) {
 
                 if ($line[$n + 5] =~ /No hits detected/) {
-                    print $output  "No hits above thresholds.\n";
+                    #print $output  "No hits above thresholds.\n";
                 }
 
             }
@@ -3740,7 +3740,7 @@ sub parse_hmm_hits {
 
             unless ($multi) {
 
-               print $output "No domain hits above thresholds.\n"; 
+               #print $output "No domain hits above thresholds.\n"; 
 
             }
 
